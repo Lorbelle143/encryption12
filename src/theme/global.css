@@ -1,0 +1,107 @@
+/* Global responsive styles */
+
+ion-toolbar {
+  --min-height: 56px;
+}
+
+ion-back-button {
+  --min-width: 48px;
+  --min-height: 48px;
+  font-size: 24px;
+  --padding-start: 8px;
+  --padding-end: 8px;
+}
+
+ion-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+ion-button {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  min-height: 44px;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  ion-toolbar {
+    --min-height: 56px;
+  }
+  
+  ion-back-button {
+    --min-width: 52px;
+    --min-height: 52px;
+    font-size: 28px;
+    --padding-start: 12px;
+    --padding-end: 12px;
+  }
+  
+  ion-title {
+    font-size: 17px;
+  }
+  
+  ion-button {
+    --padding-start: 14px;
+    --padding-end: 14px;
+    min-height: 48px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 576px) {
+  ion-toolbar {
+    --padding-start: 4px;
+    --padding-end: 4px;
+  }
+  
+  ion-back-button {
+    --min-width: 56px;
+    --min-height: 56px;
+    font-size: 30px;
+    --padding-start: 16px;
+    --padding-end: 8px;
+  }
+  
+  ion-title {
+    font-size: 16px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  
+  ion-button {
+    --padding-start: 12px;
+    --padding-end: 12px;
+    min-height: 52px;
+    font-size: 15px;
+  }
+  
+  ion-button ion-icon {
+    font-size: 22px;
+  }
+}
+
+/* Make all buttons more touch-friendly */
+ion-button::part(native) {
+  min-height: inherit;
+}
+
+/* Ensure proper spacing for button content */
+ion-button ion-icon[slot="start"] {
+  margin-right: 8px;
+}
+
+ion-button ion-icon[slot="end"] {
+  margin-left: 8px;
+}
+
+ion-button ion-icon[slot="icon-only"] {
+  margin: 0;
+  font-size: 24px;
+}
+
+@media (max-width: 576px) {
+  ion-button ion-icon[slot="icon-only"] {
+    font-size: 26px;
+  }
+}

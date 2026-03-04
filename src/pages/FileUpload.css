@@ -1,0 +1,92 @@
+.form-card {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.file-input-container {
+  margin: 24px 0;
+  padding: 32px;
+  border: 2px dashed #ccc;
+  border-radius: 12px;
+  text-align: center;
+  background: #f8f9fa;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.file-input-container:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.file-input-label {
+  cursor: pointer;
+  display: block;
+}
+
+.file-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.file-input-label strong {
+  color: #3b82f6;
+  font-size: 16px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.file-input-label p {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+.file-input-label input[type="file"] {
+  display: none;
+}
+
+.selected-file {
+  margin-top: 16px;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  color: #333;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #e0e0e0;
+}
+
+.file-name {
+  font-weight: 500;
+}
+
+.file-size {
+  color: #666;
+  font-size: 13px;
+}
+
+.form-card .btn-primary {
+  width: 100%;
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .form-card {
+    padding: 24px;
+  }
+  
+  .file-input-container {
+    padding: 24px;
+  }
+  
+  .file-icon {
+    font-size: 36px;
+  }
+}
