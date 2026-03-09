@@ -23,6 +23,8 @@ function FileList() {
   const [addingFiles, setAddingFiles] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
   const [mainViewMode, setMainViewMode] = useState('list'); // 'list' or 'grid' for main files
+  const [searchTerm, setSearchTerm] = useState('');
+  const [modalSearchTerm, setModalSearchTerm] = useState('');
 
   const fetchFiles = async () => {
     setLoading(true);
@@ -229,6 +231,19 @@ function FileList() {
     }
   };
 
+  // Filter files based on search term
+  const filteredFiles = files.filter(folder =>
+    folder.folder_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (folder.notes && folder.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    folder.classification.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Filter modal files based on search term
+  const filteredModalFiles = selectedFolder ? 
+    selectedFolder.file_urls.filter(fileUrl =>
+      fileUrl.split('/').pop().toLowerCase().includes(modalSearchTerm.toLowerCase())
+    ) : [];
+
   const deleteFile = async (folderId, fileUrls) => {
     if (!window.confirm('Are you sure you want to delete this folder and all its files?')) {
       return;
@@ -281,22 +296,50 @@ function FileList() {
         </div>
       </header>
 
+      {/* Search Bar */}
+      <div className="search-container">
+        <div className="search-bar">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            placeholder="Search folders by name, notes, or classification..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="search-clear"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {searchTerm && (
+          <div className="search-results-info">
+            {filteredFiles.length} of {files.length} folders found
+          </div>
+        )}
+      </div>
+
       <div className="content">
         {loading ? (
           <div className="loading-container">
             <div className="spinner"></div>
           </div>
-        ) : files.length === 0 ? (
+        ) : filteredFiles.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📄</div>
-            <h2>No Files Yet</h2>
-            <p>Upload your first document to get started</p>
+            <h2>{searchTerm ? 'No Files Found' : 'No Files Yet'}</h2>
+            <p>{searchTerm ? `No folders match "${searchTerm}"` : 'Upload your first document to get started'}</p>
           </div>
         ) : (
           <div className={`files-list ${mainViewMode}`}>
             {mainViewMode === 'list' ? (
               // List View for main files
-              files.map((folder) => (
+              filteredFiles.map((folder) => (
                 <div key={folder.id} className="file-item">
                   <div className="file-info">
                     <div className="file-header">
@@ -346,7 +389,7 @@ function FileList() {
             ) : (
               // Grid View for main files
               <div className="files-grid">
-                {files.map((folder) => (
+                {filteredFiles.map((folder) => (
                   <div key={folder.id} className="file-card">
                     <div className="file-card-header">
                       <span className="file-icon-xl">📁</span>
@@ -463,6 +506,34 @@ function FileList() {
                   </div>
                 </div>
 
+                {/* Modal Search Bar */}
+                <div className="modal-search-container">
+                  <div className="modal-search-bar">
+                    <span className="search-icon">🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Search files by name..."
+                      value={modalSearchTerm}
+                      onChange={(e) => setModalSearchTerm(e.target.value)}
+                      className="search-input"
+                    />
+                    {modalSearchTerm && (
+                      <button
+                        onClick={() => setModalSearchTerm('')}
+                        className="search-clear"
+                        title="Clear search"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  {modalSearchTerm && (
+                    <div className="search-results-info">
+                      {filteredModalFiles.length} of {selectedFolder.file_urls.length} files found
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ 
                   maxHeight: '500px', 
                   overflowY: 'auto', 
@@ -473,10 +544,10 @@ function FileList() {
                 }}>
                   {viewMode === 'list' ? (
                     // List View
-                    selectedFolder.file_urls.map((fileUrl, index) => (
+                    filteredModalFiles.map((fileUrl, index) => (
                       <div key={index} style={{ 
                         padding: '16px', 
-                        borderBottom: index < selectedFolder.file_urls.length - 1 ? '1px solid #e0e0e0' : 'none',
+                        borderBottom: index < filteredModalFiles.length - 1 ? '1px solid #e0e0e0' : 'none',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
@@ -513,7 +584,7 @@ function FileList() {
                       gap: '16px', 
                       padding: '16px' 
                     }}>
-                      {selectedFolder.file_urls.map((fileUrl, index) => (
+                      {filteredModalFiles.map((fileUrl, index) => (
                         <div key={index} style={{ 
                           background: 'white',
                           borderRadius: '8px',

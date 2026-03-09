@@ -466,3 +466,126 @@
     align-self: center;
   }
 }
+/* Search Bar Styles */
+.search-container {
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+}
+
+.search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 0;
+  transition: border-color 0.2s;
+}
+
+.search-bar:focus-within {
+  border-color: #3dc2ff;
+  box-shadow: 0 0 0 3px rgba(61, 194, 255, 0.1);
+}
+
+.search-icon {
+  padding: 12px 16px;
+  color: #666;
+  font-size: 16px;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 12px 8px;
+  font-size: 14px;
+  background: transparent;
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+.search-clear {
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  color: #999;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.2s;
+}
+
+.search-clear:hover {
+  color: #666;
+}
+
+.search-results-info {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+}
+
+/* Modal Search Bar */
+.modal-search-container {
+  margin-bottom: 16px;
+}
+
+.modal-search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0;
+  transition: border-color 0.2s;
+}
+
+.modal-search-bar:focus-within {
+  border-color: #3dc2ff;
+  box-shadow: 0 0 0 2px rgba(61, 194, 255, 0.1);
+}
+
+.modal-search-bar .search-icon {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.modal-search-bar .search-input {
+  padding: 8px 6px;
+  font-size: 13px;
+}
+
+.modal-search-bar .search-clear {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+/* Responsive Search */
+@media (max-width: 768px) {
+  .search-container {
+    padding: 12px 16px;
+  }
+  
+  .search-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  .search-input::placeholder {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-container {
+    padding: 12px;
+  }
+  
+  .search-input::placeholder {
+    content: "Search folders...";
+  }
+}
