@@ -21,6 +21,8 @@ function FileList() {
   const [editLoading, setEditLoading] = useState(false);
   const [addFiles, setAddFiles] = useState([]);
   const [addingFiles, setAddingFiles] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
+  const [mainViewMode, setMainViewMode] = useState('list'); // 'list' or 'grid' for main files
 
   const fetchFiles = async () => {
     setLoading(true);
@@ -261,6 +263,22 @@ function FileList() {
           ← Back
         </button>
         <h1>Files</h1>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            onClick={() => setMainViewMode('list')}
+            className={`btn-view-toggle ${mainViewMode === 'list' ? 'active' : ''}`}
+            title="List View"
+          >
+            ☰
+          </button>
+          <button
+            onClick={() => setMainViewMode('grid')}
+            className={`btn-view-toggle ${mainViewMode === 'grid' ? 'active' : ''}`}
+            title="Grid View"
+          >
+            ⊞
+          </button>
+        </div>
       </header>
 
       <div className="content">
@@ -275,54 +293,106 @@ function FileList() {
             <p>Upload your first document to get started</p>
           </div>
         ) : (
-          <div className="files-list">
-            {files.map((folder) => (
-              <div key={folder.id} className="file-item">
-                <div className="file-info">
-                  <div className="file-header">
-                    <span className="file-icon-large">📁</span>
-                    <div>
+          <div className={`files-list ${mainViewMode}`}>
+            {mainViewMode === 'list' ? (
+              // List View for main files
+              files.map((folder) => (
+                <div key={folder.id} className="file-item">
+                  <div className="file-info">
+                    <div className="file-header">
+                      <span className="file-icon-large">📁</span>
+                      <div>
+                        <h3>{folder.folder_name}</h3>
+                        <p>{folder.file_count} file(s)</p>
+                      </div>
+                    </div>
+                    <div className="file-meta">
+                      <span className="file-date">
+                        {new Date(folder.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {folder.notes && (
+                      <p className="folder-notes">{folder.notes}</p>
+                    )}
+                  </div>
+                  <div className="file-actions">
+                    <span className={`badge badge-${folder.classification.toLowerCase()}`}>
+                      {folder.classification}
+                    </span>
+                    <button
+                      onClick={() => openFolder(folder)}
+                      className="btn-view"
+                      title="Open Folder"
+                    >
+                      🔓 Open
+                    </button>
+                    <button
+                      onClick={() => openEditModal(folder)}
+                      className="btn-secondary"
+                      title="Edit Folder"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => deleteFile(folder.id, folder.file_urls)}
+                      className="btn-danger"
+                      title="Delete Folder"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              // Grid View for main files
+              <div className="files-grid">
+                {files.map((folder) => (
+                  <div key={folder.id} className="file-card">
+                    <div className="file-card-header">
+                      <span className="file-icon-xl">📁</span>
+                      <span className={`badge badge-${folder.classification.toLowerCase()}`}>
+                        {folder.classification}
+                      </span>
+                    </div>
+                    <div className="file-card-content">
                       <h3>{folder.folder_name}</h3>
-                      <p>{folder.file_count} file(s)</p>
+                      <p className="file-count">{folder.file_count} file(s)</p>
+                      <p className="file-date">
+                        {new Date(folder.created_at).toLocaleDateString()}
+                      </p>
+                      {folder.notes && (
+                        <p className="folder-notes-grid">{folder.notes}</p>
+                      )}
+                    </div>
+                    <div className="file-card-actions">
+                      <button
+                        onClick={() => openFolder(folder)}
+                        className="btn-view btn-full"
+                        title="Open Folder"
+                      >
+                        🔓 Open
+                      </button>
+                      <div className="btn-group">
+                        <button
+                          onClick={() => openEditModal(folder)}
+                          className="btn-secondary btn-small"
+                          title="Edit Folder"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => deleteFile(folder.id, folder.file_urls)}
+                          className="btn-danger btn-small"
+                          title="Delete Folder"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="file-meta">
-                    <span className="file-date">
-                      {new Date(folder.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {folder.notes && (
-                    <p className="folder-notes">{folder.notes}</p>
-                  )}
-                </div>
-                <div className="file-actions">
-                  <span className={`badge badge-${folder.classification.toLowerCase()}`}>
-                    {folder.classification}
-                  </span>
-                  <button
-                    onClick={() => openFolder(folder)}
-                    className="btn-view"
-                    title="Open Folder"
-                  >
-                    🔓 Open
-                  </button>
-                  <button
-                    onClick={() => openEditModal(folder)}
-                    className="btn-secondary"
-                    title="Edit Folder"
-                  >
-                    ✏️ Edit
-                  </button>
-                  <button
-                    onClick={() => deleteFile(folder.id, folder.file_urls)}
-                    className="btn-danger"
-                    title="Delete Folder"
-                  >
-                    🗑️
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -366,13 +436,31 @@ function FileList() {
               <div style={{ marginTop: '20px', borderTop: '1px solid #ddd', paddingTop: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <h3>Files in folder ({selectedFolder.file_urls.length}):</h3>
-                  <button
-                    onClick={downloadAllFiles}
-                    className="btn-primary"
-                    style={{ padding: '8px 16px', fontSize: '13px' }}
-                  >
-                    ⬇️ Download All
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '4px', marginRight: '12px' }}>
+                      <button
+                        onClick={() => setViewMode('list')}
+                        className={`btn-view-toggle ${viewMode === 'list' ? 'active' : ''}`}
+                        title="List View"
+                      >
+                        ☰
+                      </button>
+                      <button
+                        onClick={() => setViewMode('grid')}
+                        className={`btn-view-toggle ${viewMode === 'grid' ? 'active' : ''}`}
+                        title="Grid View"
+                      >
+                        ⊞
+                      </button>
+                    </div>
+                    <button
+                      onClick={downloadAllFiles}
+                      className="btn-primary"
+                      style={{ padding: '8px 16px', fontSize: '13px' }}
+                    >
+                      ⬇️ Download All
+                    </button>
+                  </div>
                 </div>
 
                 <div style={{ 
@@ -383,38 +471,97 @@ function FileList() {
                   borderRadius: '8px',
                   background: '#f9f9f9'
                 }}>
-                  {selectedFolder.file_urls.map((fileUrl, index) => (
-                    <div key={index} style={{ 
-                      padding: '16px', 
-                      borderBottom: index < selectedFolder.file_urls.length - 1 ? '1px solid #e0e0e0' : 'none',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      background: 'white',
-                      transition: 'background 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
-                    >
-                      <span style={{ fontSize: '15px', fontWeight: '500' }}>📄 {fileUrl.split('/').pop()}</span>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => viewFile(fileUrl)}
-                          className="btn-view"
-                          style={{ padding: '8px 14px', fontSize: '13px' }}
-                        >
-                          👁️ View
-                        </button>
-                        <button
-                          onClick={() => downloadFile(fileUrl)}
-                          className="btn-secondary"
-                          style={{ padding: '8px 14px', fontSize: '13px' }}
-                        >
-                          ⬇️ Download
-                        </button>
+                  {viewMode === 'list' ? (
+                    // List View
+                    selectedFolder.file_urls.map((fileUrl, index) => (
+                      <div key={index} style={{ 
+                        padding: '16px', 
+                        borderBottom: index < selectedFolder.file_urls.length - 1 ? '1px solid #e0e0e0' : 'none',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'white',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                      >
+                        <span style={{ fontSize: '15px', fontWeight: '500' }}>📄 {fileUrl.split('/').pop()}</span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => viewFile(fileUrl)}
+                            className="btn-view"
+                            style={{ padding: '8px 14px', fontSize: '13px' }}
+                          >
+                            👁️ View
+                          </button>
+                          <button
+                            onClick={() => downloadFile(fileUrl)}
+                            className="btn-secondary"
+                            style={{ padding: '8px 14px', fontSize: '13px' }}
+                          >
+                            ⬇️ Download
+                          </button>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    // Grid View
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                      gap: '16px', 
+                      padding: '16px' 
+                    }}>
+                      {selectedFolder.file_urls.map((fileUrl, index) => (
+                        <div key={index} style={{ 
+                          background: 'white',
+                          borderRadius: '8px',
+                          padding: '16px',
+                          textAlign: 'center',
+                          border: '1px solid #e0e0e0',
+                          transition: 'all 0.2s',
+                          cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }}
+                        >
+                          <div style={{ fontSize: '48px', marginBottom: '12px' }}>📄</div>
+                          <div style={{ 
+                            fontSize: '13px', 
+                            fontWeight: '500', 
+                            marginBottom: '12px',
+                            wordBreak: 'break-word',
+                            lineHeight: '1.3'
+                          }}>
+                            {fileUrl.split('/').pop()}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <button
+                              onClick={() => viewFile(fileUrl)}
+                              className="btn-view"
+                              style={{ padding: '6px 12px', fontSize: '12px', width: '100%' }}
+                            >
+                              👁️ View
+                            </button>
+                            <button
+                              onClick={() => downloadFile(fileUrl)}
+                              className="btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px', width: '100%' }}
+                            >
+                              ⬇️ Download
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 {/* Add more files section */}
