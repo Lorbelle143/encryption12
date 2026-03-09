@@ -375,28 +375,40 @@ function FileList() {
                   </button>
                 </div>
 
-                <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '20px' }}>
+                <div style={{ 
+                  maxHeight: '500px', 
+                  overflowY: 'auto', 
+                  marginBottom: '20px',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  background: '#f9f9f9'
+                }}>
                   {selectedFolder.file_urls.map((fileUrl, index) => (
                     <div key={index} style={{ 
-                      padding: '10px', 
-                      borderBottom: '1px solid #eee',
+                      padding: '16px', 
+                      borderBottom: index < selectedFolder.file_urls.length - 1 ? '1px solid #e0e0e0' : 'none',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <span>📄 {fileUrl.split('/').pop()}</span>
-                      <div style={{ display: 'flex', gap: '5px' }}>
+                      alignItems: 'center',
+                      background: 'white',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
+                    >
+                      <span style={{ fontSize: '15px', fontWeight: '500' }}>📄 {fileUrl.split('/').pop()}</span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                           onClick={() => viewFile(fileUrl)}
                           className="btn-view"
-                          style={{ padding: '5px 10px', fontSize: '12px' }}
+                          style={{ padding: '8px 14px', fontSize: '13px' }}
                         >
                           👁️ View
                         </button>
                         <button
                           onClick={() => downloadFile(fileUrl)}
                           className="btn-secondary"
-                          style={{ padding: '5px 10px', fontSize: '12px' }}
+                          style={{ padding: '8px 14px', fontSize: '13px' }}
                         >
                           ⬇️ Download
                         </button>
