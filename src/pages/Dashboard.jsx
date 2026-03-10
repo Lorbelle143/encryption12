@@ -1,17 +1,47 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 import './Dashboard.css';
 
 function Dashboard() {
   const { user, role, loading, isAdmin } = useAuth();
   const history = useHistory();
+  const [totalFiles, setTotalFiles] = useState(0);
+  const [totalFolders, setTotalFolders] = useState(0);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
       history.push('/login');
     }
   }, [user, loading, history]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!isAdmin()) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('folders')
+          .select('file_count');
+
+        if (!error && data) {
+          setTotalFolders(data.length);
+          const totalFileCount = data.reduce((sum, folder) => sum + (folder.file_count || 0), 0);
+          setTotalFiles(totalFileCount);
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    if (!loading && isAdmin()) {
+      fetchStats();
+    }
+  }, [loading, isAdmin]);
 
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
@@ -79,10 +109,17 @@ function Dashboard() {
           </div>
           <div className="quick-stats">
             <div className="stat-card">
-              <div className="stat-icon">📊</div>
+              <div className="stat-icon">📁</div>
+              <div className="stat-info">
+                <span className="stat-label">Total Folders</span>
+                <span className="stat-value">{statsLoading ? '...' : totalFolders}</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">📄</div>
               <div className="stat-info">
                 <span className="stat-label">Total Files</span>
-                <span className="stat-value">-</span>
+                <span className="stat-value">{statsLoading ? '...' : totalFiles}</span>
               </div>
             </div>
           </div>
