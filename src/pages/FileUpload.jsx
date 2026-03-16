@@ -31,15 +31,17 @@ function FileUpload() {
       return;
     }
 
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
     // Validate all files
     const invalidFiles = selectedFiles.filter(file => {
-      if (file.type !== 'application/pdf') return true;
+      if (!allowedTypes.includes(file.type)) return true;
       if (file.size > 10 * 1024 * 1024) return true; // 10MB limit
       return false;
     });
 
     if (invalidFiles.length > 0) {
-      setMessage('All files must be PDF and less than 10MB each');
+      setMessage('Files must be PDF or image (JPG, PNG, GIF, WEBP) and less than 10MB each');
       setFiles([]);
       return;
     }
@@ -196,12 +198,12 @@ function FileUpload() {
             <div className="file-input-container">
               <label htmlFor="file-input" className="file-input-label">
                 <div className="file-icon">📁</div>
-                <strong>Choose PDF files (Multiple)</strong>
-                <p>Select multiple PDF files (Max 10MB each)</p>
+                <strong>Choose files (Multiple)</strong>
+                <p>PDF or images (JPG, PNG, GIF, WEBP) — Max 10MB each</p>
                 <input
                   id="file-input"
                   type="file"
-                  accept=".pdf,application/pdf"
+                  accept=".pdf,application/pdf,image/*"
                   onChange={handleFileChange}
                   disabled={loading}
                   multiple

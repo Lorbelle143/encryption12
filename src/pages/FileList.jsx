@@ -25,6 +25,7 @@ function FileList() {
   const [mainViewMode, setMainViewMode] = useState('list'); // 'list' or 'grid' for main files
   const [searchTerm, setSearchTerm] = useState('');
   const [modalSearchTerm, setModalSearchTerm] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetchFiles = async () => {
     setLoading(true);
@@ -38,6 +39,9 @@ function FileList() {
     }
     setLoading(false);
   };
+
+  const activeFiles = files.filter(f => !f.is_archived);
+  const archivedFiles = files.filter(f => f.is_archived);
 
   useEffect(() => {
     if (authLoading) return; // ⛔ wait for auth
@@ -54,7 +58,9 @@ function FileList() {
   }, [authLoading]);
 
   const getFileIcon = (fileName) => {
-    return '📕';
+    const ext = fileName.split('.').pop().toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return '🖼️';
+    return '📄';
   };
 
   const getFileType = (fileName) => {
@@ -115,13 +121,14 @@ function FileList() {
     if (selectedFiles.length === 0) return;
 
     const invalidFiles = selectedFiles.filter(file => {
-      if (file.type !== 'application/pdf') return true;
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) return true;
       if (file.size > 10 * 1024 * 1024) return true;
       return false;
     });
 
     if (invalidFiles.length > 0) {
-      alert('All files must be PDF and less than 10MB each');
+      alert('Files must be PDF or image (JPG, PNG, GIF, WEBP) and less than 10MB each');
       return;
     }
 
@@ -220,7 +227,14 @@ function FileList() {
 
       if (error) throw error;
 
-      const blob = new Blob([data], { type: 'application/pdf' });
+      const ext = fileUrl.split('.').pop().toLowerCase();
+      const mimeType = ['jpg', 'jpeg'].includes(ext) ? 'image/jpeg'
+        : ext === 'png' ? 'image/png'
+        : ext === 'gif' ? 'image/gif'
+        : ext === 'webp' ? 'image/webp'
+        : 'application/pdf';
+
+      const blob = new Blob([data], { type: mimeType });
       const url = URL.createObjectURL(blob);
       
       window.open(url, '_blank');
@@ -232,7 +246,7 @@ function FileList() {
   };
 
   // Filter files based on search term
-  const filteredFiles = files.filter(folder =>
+  const filteredFiles = (showArchived ? archivedFiles : activeFiles).filter(folder =>
     folder.folder_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (folder.notes && folder.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
     folder.classification.toLowerCase().includes(searchTerm.toLowerCase())
@@ -245,12 +259,43 @@ function FileList() {
     ) : [];
 
   const deleteFile = async (folderId, fileUrls) => {
-    if (!window.confirm('Are you sure you want to delete this folder and all its files?')) {
+    if (!window.confirm('Archive this folder? You can restore it later from the Archived section.')) {
       return;
     }
 
     try {
-      // Delete all files in the folder
+      const { error } = await supabase
+        .from('folders')
+        .update({ is_archived: true, archived_at: new Date().toISOString() })
+        .eq('id', folderId);
+
+      if (error) throw error;
+      fetchFiles();
+    } catch (error) {
+      alert('Error archiving folder: ' + error.message);
+    }
+  };
+
+  const restoreFolder = async (folderId) => {
+    try {
+      const { error } = await supabase
+        .from('folders')
+        .update({ is_archived: false, archived_at: null })
+        .eq('id', folderId);
+
+      if (error) throw error;
+      fetchFiles();
+    } catch (error) {
+      alert('Error restoring folder: ' + error.message);
+    }
+  };
+
+  const permanentDelete = async (folderId, fileUrls) => {
+    if (!window.confirm('Permanently delete this folder and all its files? This cannot be undone.')) {
+      return;
+    }
+
+    try {
       if (fileUrls && fileUrls.length > 0) {
         await supabase.storage.from('office-forms').remove(fileUrls);
       }
@@ -279,6 +324,14 @@ function FileList() {
         </button>
         <h1>Files</h1>
         <div style={{ display: 'flex', gap: '4px' }}>
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className={`btn-secondary btn-small`}
+            title="Toggle Archived"
+            style={{ marginRight: '8px' }}
+          >
+            {showArchived ? '📂 Active' : `🗄️ Archived${archivedFiles.length > 0 ? ` (${archivedFiles.length})` : ''}`}
+          </button>
           <button
             onClick={() => setMainViewMode('list')}
             className={`btn-view-toggle ${mainViewMode === 'list' ? 'active' : ''}`}
@@ -332,8 +385,8 @@ function FileList() {
         ) : filteredFiles.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📄</div>
-            <h2>{searchTerm ? 'No Files Found' : 'No Files Yet'}</h2>
-            <p>{searchTerm ? `No folders match "${searchTerm}"` : 'Upload your first document to get started'}</p>
+            <h2>{searchTerm ? 'No Files Found' : (showArchived ? 'No Archived Files' : 'No Files Yet')}</h2>
+            <p>{searchTerm ? `No folders match "${searchTerm}"` : (showArchived ? 'Deleted folders will appear here' : 'Upload your first document to get started')}</p>
           </div>
         ) : (
           <div className={`files-list ${mainViewMode}`}>
@@ -362,27 +415,48 @@ function FileList() {
                     <span className={`badge badge-${folder.classification.toLowerCase()}`}>
                       {folder.classification}
                     </span>
-                    <button
-                      onClick={() => openFolder(folder)}
-                      className="btn-view"
-                      title="Open Folder"
-                    >
-                      🔓 Open
-                    </button>
-                    <button
-                      onClick={() => openEditModal(folder)}
-                      className="btn-secondary"
-                      title="Edit Folder"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => deleteFile(folder.id, folder.file_urls)}
-                      className="btn-danger"
-                      title="Delete Folder"
-                    >
-                      🗑️
-                    </button>
+                    {showArchived ? (
+                      <>
+                        <button
+                          onClick={() => restoreFolder(folder.id)}
+                          className="btn-view"
+                          title="Restore Folder"
+                        >
+                          ♻️ Restore
+                        </button>
+                        <button
+                          onClick={() => permanentDelete(folder.id, folder.file_urls)}
+                          className="btn-danger"
+                          title="Permanently Delete"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => openFolder(folder)}
+                          className="btn-view"
+                          title="Open Folder"
+                        >
+                          🔓 Open
+                        </button>
+                        <button
+                          onClick={() => openEditModal(folder)}
+                          className="btn-secondary"
+                          title="Edit Folder"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => deleteFile(folder.id, folder.file_urls)}
+                          className="btn-danger"
+                          title="Archive Folder"
+                        >
+                          🗑️
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))
@@ -408,29 +482,50 @@ function FileList() {
                       )}
                     </div>
                     <div className="file-card-actions">
-                      <button
-                        onClick={() => openFolder(folder)}
-                        className="btn-view btn-full"
-                        title="Open Folder"
-                      >
-                        🔓 Open
-                      </button>
-                      <div className="btn-group">
-                        <button
-                          onClick={() => openEditModal(folder)}
-                          className="btn-secondary btn-small"
-                          title="Edit Folder"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => deleteFile(folder.id, folder.file_urls)}
-                          className="btn-danger btn-small"
-                          title="Delete Folder"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                      {showArchived ? (
+                        <div className="btn-group">
+                          <button
+                            onClick={() => restoreFolder(folder.id)}
+                            className="btn-view btn-small"
+                            title="Restore"
+                          >
+                            ♻️
+                          </button>
+                          <button
+                            onClick={() => permanentDelete(folder.id, folder.file_urls)}
+                            className="btn-danger btn-small"
+                            title="Permanently Delete"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => openFolder(folder)}
+                            className="btn-view btn-full"
+                            title="Open Folder"
+                          >
+                            🔓 Open
+                          </button>
+                          <div className="btn-group">
+                            <button
+                              onClick={() => openEditModal(folder)}
+                              className="btn-secondary btn-small"
+                              title="Edit Folder"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => deleteFile(folder.id, folder.file_urls)}
+                              className="btn-danger btn-small"
+                              title="Archive Folder"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -557,7 +652,7 @@ function FileList() {
                       onMouseEnter={(e) => e.currentTarget.style.background = '#f5f5f5'}
                       onMouseLeave={(e) => e.currentTarget.style.background = 'white'}
                       >
-                        <span style={{ fontSize: '15px', fontWeight: '500' }}>📄 {fileUrl.split('/').pop()}</span>
+                        <span style={{ fontSize: '15px', fontWeight: '500' }}>{getFileIcon(fileUrl.split('/').pop())} {fileUrl.split('/').pop()}</span>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
                             onClick={() => viewFile(fileUrl)}
@@ -603,7 +698,7 @@ function FileList() {
                           e.currentTarget.style.boxShadow = 'none';
                         }}
                         >
-                          <div style={{ fontSize: '48px', marginBottom: '12px' }}>📄</div>
+                          <div style={{ fontSize: '48px', marginBottom: '12px' }}>{getFileIcon(fileUrl.split('/').pop())}</div>
                           <div style={{ 
                             fontSize: '13px', 
                             fontWeight: '500', 
@@ -641,7 +736,7 @@ function FileList() {
                   <div style={{ marginTop: '12px' }}>
                     <input
                       type="file"
-                      accept=".pdf,application/pdf"
+                      accept=".pdf,application/pdf,image/*"
                       multiple
                       onChange={handleAddFiles}
                       disabled={addingFiles}

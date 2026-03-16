@@ -111,6 +111,14 @@ FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
+-- SOFT DELETE / ARCHIVE SUPPORT
+-- ============================================
+
+-- Add is_archived column to folders table (run this if table already exists)
+ALTER TABLE folders ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE folders ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;
+
+-- ============================================
 -- SETUP INSTRUCTIONS
 -- ============================================
 
