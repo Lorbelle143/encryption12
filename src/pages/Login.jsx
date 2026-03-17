@@ -35,11 +35,6 @@ function Login() {
         throw new Error(`Too many failed attempts. Try again in ${remaining} minute(s).`);
       }
 
-      // Reset attempts if lockout period passed
-      if (now - time >= LOCKOUT_MS) {
-        localStorage.setItem('loginAttempts', JSON.stringify({ count: 0, time: now }));
-      }
-
       const storedHash = import.meta.env.VITE_MASTER_KEY_HASH;
 
       if (!storedHash) {
@@ -49,14 +44,12 @@ function Login() {
       const inputHash = await hashPassword(masterKey);
 
       if (inputHash === storedHash) {
-        // Clear attempts on success
         localStorage.removeItem('loginAttempts');
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('authTime', Date.now().toString());
         history.push('/dashboard');
       } else {
-        // Increment failed attempts
-        const newCount = (count >= MAX_ATTEMPTS ? 0 : count) + 1;
+        const newCount = count >= MAX_ATTEMPTS ? 1 : count + 1;
         localStorage.setItem('loginAttempts', JSON.stringify({ count: newCount, time: now }));
         const remaining = MAX_ATTEMPTS - newCount;
         throw new Error(remaining > 0
