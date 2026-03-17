@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Switch, Redirect } from 'react-router-dom';
 import Login from './pages/Login';
+import Splash from './pages/Splash';
 import Dashboard from './pages/Dashboard';
 import FileUpload from './pages/FileUpload';
 import FileList from './pages/FileList';
@@ -14,9 +15,8 @@ function App() {
         <Route exact path="/dashboard" component={Dashboard} />
         <Route exact path="/upload" component={FileUpload} />
         <Route exact path="/files" component={FileList} />
-        <Route exact path="/">
-          <Redirect to="/login" />
-        </Route>
+        <Route exact path="/" component={Splash} />
+        <Redirect to="/" />
       </Switch>
     </Router>
   );

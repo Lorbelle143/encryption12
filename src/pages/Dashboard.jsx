@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
+import gcoLogo from '../assets/gco-logo.png';
 import './Dashboard.css';
 
 function Dashboard() {
@@ -81,7 +82,7 @@ function Dashboard() {
     <div className="page dashboard-page">
       <header className="header dashboard-header">
         <div className="header-left">
-          <div className="header-logo-mark">🏫</div>
+          <img src={gcoLogo} alt="GCO Logo" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'contain', background: '#fff' }} />
           <div className="header-info">
             <h1>NBSC Guidance Counseling</h1>
             <p className="header-subtitle">Document Management System</p>

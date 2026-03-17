@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { hashPassword } from '../lib/crypto';
+import nbscLogo from '../assets/nbsc-logo.png';
+import gcoLogo from '../assets/gco-logo.png';
 import './Login.css';
 
 const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+const LOCKOUT_MS = 15 * 60 * 1000;
 
 function Login() {
   const [masterKey, setMasterKey] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const history = useHistory();
@@ -29,17 +32,13 @@ function Login() {
       const { count, time } = getAttemptData();
       const now = Date.now();
 
-      // Check lockout
       if (count >= MAX_ATTEMPTS && now - time < LOCKOUT_MS) {
         const remaining = Math.ceil((LOCKOUT_MS - (now - time)) / 60000);
         throw new Error(`Too many failed attempts. Try again in ${remaining} minute(s).`);
       }
 
       const storedHash = import.meta.env.VITE_MASTER_KEY_HASH;
-
-      if (!storedHash) {
-        throw new Error('System not configured. Contact administrator.');
-      }
+      if (!storedHash) throw new Error('System not configured. Contact administrator.');
 
       const inputHash = await hashPassword(masterKey);
 
@@ -66,38 +65,83 @@ function Login() {
 
   return (
     <div className="login-page">
-      <div className="login-container">
-        <div className="login-header">
-          <div className="login-logo">🔐</div>
-          <h1>NBSC Guidance Counseling</h1>
-          <p>Secure Document Management System</p>
-        </div>
 
-        <div className="login-card">
-          <h2>Admin Access</h2>
+      {/* LEFT — branding panel */}
+      <div className="login-left">
+        <div className="login-left-inner">
+
+          {/* 1. GCO logo + title at top */}
+          <img src={gcoLogo} alt="GCO Logo" className="login-gco-logo" />
+          <h1 className="login-gco-title">Guidance Counseling Office Encryption</h1>
+
+          {/* 2. NBSC row right below title */}
+          <div className="login-nbsc-row">
+            <img src={nbscLogo} alt="NBSC Logo" className="login-nbsc-logo" />
+            <span className="login-nbsc-name">Northern Bukidnon State College</span>
+          </div>
+
+          {/* 3. Feature bullets right below NBSC */}
+          <ul className="login-features">
+            <li>
+              <span className="feat-icon">&#x1F512;</span>
+              <span>Encrypted document storage</span>
+            </li>
+            <li>
+              <span className="feat-icon">&#x1F4C1;</span>
+              <span>Password-protected folders</span>
+            </li>
+            <li>
+              <span className="feat-icon">&#x1F5C4;</span>
+              <span>Archive &amp; restore files</span>
+            </li>
+          </ul>
+
+        </div>
+      </div>
+
+      {/* RIGHT — form panel */}
+      <div className="login-right">
+        <div className="login-form-wrap">
+          <div className="login-form-header">
+            <h2>Welcome Back</h2>
+            <p>Enter your master key to access the system.</p>
+          </div>
 
           <form onSubmit={handleLogin}>
             <div className="form-group">
-              <label>Master Key</label>
-              <input
-                type="password"
-                value={masterKey}
-                onChange={(e) => setMasterKey(e.target.value)}
-                placeholder="Enter master key"
-                required
-                disabled={loading}
-                autoComplete="current-password"
-              />
+              <label htmlFor="master-key">Master Key</label>
+              <div className="input-wrap">
+                <input
+                  id="master-key"
+                  type={showPassword ? 'text' : 'password'}
+                  value={masterKey}
+                  onChange={(e) => setMasterKey(e.target.value)}
+                  placeholder="Enter your master key"
+                  required
+                  disabled={loading}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className="toggle-pw"
+                  onClick={() => setShowPassword(v => !v)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </div>
 
-            {message && <div className="message">{message}</div>}
+            {message && <div className="login-message">{message}</div>}
 
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Verifying...' : 'Access System'}
+            <button type="submit" className="btn-login" disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
         </div>
       </div>
+
     </div>
   );
 }
