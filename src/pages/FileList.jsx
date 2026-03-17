@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
+import { verifyPassword, hashPassword } from '../lib/crypto';
 import './FileList.css';
 
 function FileList() {
@@ -13,11 +14,13 @@ function FileList() {
   const [passwordInput, setPasswordInput] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFolder, setEditFolder] = useState(null);
   const [editFolderName, setEditFolderName] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editClassification, setEditClassification] = useState('');
+  const [editNewPassword, setEditNewPassword] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [addFiles, setAddFiles] = useState([]);
   const [addingFiles, setAddingFiles] = useState(false);
@@ -26,6 +29,8 @@ function FileList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [modalSearchTerm, setModalSearchTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [sortBy, setSortBy] = useState('date'); // 'date' | 'name' | 'classification' | 'count'
+  const [sortDir, setSortDir] = useState('desc');
 
   const fetchFiles = async () => {
     setLoading(true);
@@ -44,15 +49,10 @@ function FileList() {
   const archivedFiles = files.filter(f => f.is_archived);
 
   useEffect(() => {
-    if (authLoading) return; // ⛔ wait for auth
-    
-    console.log('FileList useEffect - isAdmin:', isAdmin());
-    
+    if (authLoading) return;
     if (!isAdmin()) {
-      console.log('Not admin, redirecting to dashboard');
       history.push('/dashboard');
     } else {
-      console.log('Is admin, fetching files');
       fetchFiles();
     }
   }, [authLoading]);
@@ -72,6 +72,7 @@ function FileList() {
     setShowPasswordModal(true);
     setPasswordInput('');
     setPasswordError('');
+    setIsUnlocked(false);
   };
 
   const openEditModal = (folder) => {
@@ -79,23 +80,23 @@ function FileList() {
     setEditFolderName(folder.folder_name);
     setEditNotes(folder.notes || '');
     setEditClassification(folder.classification);
+    setEditNewPassword('');
     setShowEditModal(true);
   };
 
   const handleEditSubmit = async () => {
     setEditLoading(true);
     try {
-      const { error } = await supabase
-        .from('folders')
-        .update({
-          folder_name: editFolderName,
-          notes: editNotes,
-          classification: editClassification
-        })
-        .eq('id', editFolder.id);
-
+      const updates = {
+        folder_name: editFolderName,
+        notes: editNotes,
+        classification: editClassification
+      };
+      if (editNewPassword.trim()) {
+        updates.folder_password = await hashPassword(editNewPassword.trim());
+      }
+      const { error } = await supabase.from('folders').update(updates).eq('id', editFolder.id);
       if (error) throw error;
-
       setShowEditModal(false);
       fetchFiles();
       alert('Folder updated successfully!');
@@ -106,12 +107,19 @@ function FileList() {
     }
   };
 
-  const verifyPassword = () => {
-    if (passwordInput === selectedFolder.folder_password) {
+  const verifyFolderPassword = async () => {
+    // Support both hashed passwords (new) and plain text (legacy folders)
+    const isHash = /^[a-f0-9]{64}$/.test(selectedFolder.folder_password);
+    const match = isHash
+      ? await verifyPassword(passwordInput, selectedFolder.folder_password)
+      : passwordInput === selectedFolder.folder_password;
+
+    if (match) {
       setPasswordError('');
-      // Password is correct, modal stays open to show files
+      setIsUnlocked(true);
     } else {
       setPasswordError('Incorrect password');
+      setIsUnlocked(false);
     }
   };
 
@@ -245,13 +253,6 @@ function FileList() {
     }
   };
 
-  // Filter files based on search term
-  const filteredFiles = (showArchived ? archivedFiles : activeFiles).filter(folder =>
-    folder.folder_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (folder.notes && folder.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    folder.classification.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   // Filter modal files based on search term
   const filteredModalFiles = selectedFolder ? 
     selectedFolder.file_urls.filter(fileUrl =>
@@ -312,6 +313,82 @@ function FileList() {
     }
   };
 
+  const deleteIndividualFile = async (fileUrl) => {
+    if (!window.confirm(`Archive "${fileUrl.split('/').pop()}"? You can restore it later.`)) return;
+    try {
+      const updatedUrls = selectedFolder.file_urls.filter(u => u !== fileUrl);
+      const updatedArchived = [...(selectedFolder.archived_file_urls || []), fileUrl];
+      const { error } = await supabase
+        .from('folders')
+        .update({ file_urls: updatedUrls, file_count: updatedUrls.length, archived_file_urls: updatedArchived })
+        .eq('id', selectedFolder.id);
+      if (error) throw error;
+      setSelectedFolder({ ...selectedFolder, file_urls: updatedUrls, file_count: updatedUrls.length, archived_file_urls: updatedArchived });
+      fetchFiles();
+    } catch (error) {
+      alert('Error archiving file: ' + error.message);
+    }
+  };
+
+  const restoreIndividualFile = async (fileUrl) => {
+    try {
+      const updatedArchived = (selectedFolder.archived_file_urls || []).filter(u => u !== fileUrl);
+      const updatedUrls = [...selectedFolder.file_urls, fileUrl];
+      const { error } = await supabase
+        .from('folders')
+        .update({ file_urls: updatedUrls, file_count: updatedUrls.length, archived_file_urls: updatedArchived })
+        .eq('id', selectedFolder.id);
+      if (error) throw error;
+      setSelectedFolder({ ...selectedFolder, file_urls: updatedUrls, file_count: updatedUrls.length, archived_file_urls: updatedArchived });
+      fetchFiles();
+    } catch (error) {
+      alert('Error restoring file: ' + error.message);
+    }
+  };
+
+  const permanentDeleteIndividualFile = async (fileUrl) => {
+    if (!window.confirm(`Permanently delete "${fileUrl.split('/').pop()}"? This cannot be undone.`)) return;
+    try {
+      await supabase.storage.from('office-forms').remove([fileUrl]);
+      const updatedArchived = (selectedFolder.archived_file_urls || []).filter(u => u !== fileUrl);
+      const { error } = await supabase
+        .from('folders')
+        .update({ archived_file_urls: updatedArchived })
+        .eq('id', selectedFolder.id);
+      if (error) throw error;
+      setSelectedFolder({ ...selectedFolder, archived_file_urls: updatedArchived });
+      fetchFiles();
+    } catch (error) {
+      alert('Error deleting file: ' + error.message);
+    }
+  };
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedFilteredFiles = [...(showArchived ? archivedFiles : activeFiles)]
+    .filter(folder =>
+      folder.folder_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (folder.notes && folder.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      folder.classification.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      let valA, valB;
+      if (sortBy === 'name') { valA = a.folder_name.toLowerCase(); valB = b.folder_name.toLowerCase(); }
+      else if (sortBy === 'classification') { valA = a.classification; valB = b.classification; }
+      else if (sortBy === 'count') { valA = a.file_count; valB = b.file_count; }
+      else { valA = new Date(a.created_at); valB = new Date(b.created_at); }
+      if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
   return (
     <div className="page">
       <header className="header">
@@ -361,18 +438,20 @@ function FileList() {
             className="search-input"
           />
           {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              className="search-clear"
-              title="Clear search"
-            >
-              ✕
-            </button>
+            <button onClick={() => setSearchTerm('')} className="search-clear" title="Clear search">✕</button>
           )}
+        </div>
+        <div className="sort-bar">
+          <span style={{ fontSize: '13px', color: '#666', marginRight: '8px' }}>Sort:</span>
+          {[['date','Date'],['name','Name'],['classification','Classification'],['count','Files']].map(([field, label]) => (
+            <button key={field} onClick={() => handleSort(field)} className={`sort-btn ${sortBy === field ? 'active' : ''}`}>
+              {label} {sortBy === field ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+            </button>
+          ))}
         </div>
         {searchTerm && (
           <div className="search-results-info">
-            {filteredFiles.length} of {files.length} folders found
+            {sortedFilteredFiles.length} of {files.length} folders found
           </div>
         )}
       </div>
@@ -382,7 +461,7 @@ function FileList() {
           <div className="loading-container">
             <div className="spinner"></div>
           </div>
-        ) : filteredFiles.length === 0 ? (
+        ) : sortedFilteredFiles.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📄</div>
             <h2>{searchTerm ? 'No Files Found' : (showArchived ? 'No Archived Files' : 'No Files Yet')}</h2>
@@ -392,7 +471,7 @@ function FileList() {
           <div className={`files-list ${mainViewMode}`}>
             {mainViewMode === 'list' ? (
               // List View for main files
-              filteredFiles.map((folder) => (
+              sortedFilteredFiles.map((folder) => (
                 <div key={folder.id} className="file-item">
                   <div className="file-info">
                     <div className="file-header">
@@ -463,7 +542,7 @@ function FileList() {
             ) : (
               // Grid View for main files
               <div className="files-grid">
-                {filteredFiles.map((folder) => (
+                {sortedFilteredFiles.map((folder) => (
                   <div key={folder.id} className="file-card">
                     <div className="file-card-header">
                       <span className="file-icon-xl">📁</span>
@@ -549,7 +628,7 @@ function FileList() {
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 placeholder="Enter folder password"
-                onKeyPress={(e) => e.key === 'Enter' && verifyPassword()}
+                onKeyPress={(e) => e.key === 'Enter' && verifyFolderPassword()}
                 autoFocus
               />
             </div>
@@ -561,7 +640,7 @@ function FileList() {
             )}
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button onClick={verifyPassword} className="btn-primary">
+              <button onClick={verifyFolderPassword} className="btn-primary">
                 Unlock
               </button>
               <button onClick={() => setShowPasswordModal(false)} className="btn-secondary">
@@ -570,7 +649,7 @@ function FileList() {
             </div>
 
             {/* Show files after unlock */}
-            {passwordInput === selectedFolder.folder_password && (
+            {isUnlocked && (
               <div style={{ marginTop: '20px', borderTop: '1px solid #ddd', paddingTop: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <h3>Files in folder ({selectedFolder.file_urls.length}):</h3>
@@ -654,19 +733,14 @@ function FileList() {
                       >
                         <span style={{ fontSize: '15px', fontWeight: '500' }}>{getFileIcon(fileUrl.split('/').pop())} {fileUrl.split('/').pop()}</span>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            onClick={() => viewFile(fileUrl)}
-                            className="btn-view"
-                            style={{ padding: '8px 14px', fontSize: '13px' }}
-                          >
+                          <button onClick={() => viewFile(fileUrl)} className="btn-view" style={{ padding: '8px 14px', fontSize: '13px' }}>
                             👁️ View
                           </button>
-                          <button
-                            onClick={() => downloadFile(fileUrl)}
-                            className="btn-secondary"
-                            style={{ padding: '8px 14px', fontSize: '13px' }}
-                          >
+                          <button onClick={() => downloadFile(fileUrl)} className="btn-secondary" style={{ padding: '8px 14px', fontSize: '13px' }}>
                             ⬇️ Download
+                          </button>
+                          <button onClick={() => deleteIndividualFile(fileUrl)} className="btn-danger" style={{ padding: '8px 12px', fontSize: '13px' }}>
+                            🗑️
                           </button>
                         </div>
                       </div>
@@ -709,19 +783,14 @@ function FileList() {
                             {fileUrl.split('/').pop()}
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <button
-                              onClick={() => viewFile(fileUrl)}
-                              className="btn-view"
-                              style={{ padding: '6px 12px', fontSize: '12px', width: '100%' }}
-                            >
+                            <button onClick={() => viewFile(fileUrl)} className="btn-view" style={{ padding: '6px 12px', fontSize: '12px', width: '100%' }}>
                               👁️ View
                             </button>
-                            <button
-                              onClick={() => downloadFile(fileUrl)}
-                              className="btn-secondary"
-                              style={{ padding: '6px 12px', fontSize: '12px', width: '100%' }}
-                            >
+                            <button onClick={() => downloadFile(fileUrl)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', width: '100%' }}>
                               ⬇️ Download
+                            </button>
+                            <button onClick={() => deleteIndividualFile(fileUrl)} className="btn-danger" style={{ padding: '6px 12px', fontSize: '12px', width: '100%' }}>
+                              🗑️ Delete
                             </button>
                           </div>
                         </div>
@@ -729,6 +798,33 @@ function FileList() {
                     </div>
                   )}
                 </div>
+
+                {/* Archived files section */}
+                {selectedFolder.archived_file_urls && selectedFolder.archived_file_urls.length > 0 && (
+                  <div style={{ borderTop: '1px solid #ddd', paddingTop: '20px', marginTop: '8px' }}>
+                    <h4 style={{ color: '#888', marginBottom: '12px' }}>🗄️ Archived Files ({selectedFolder.archived_file_urls.length})</h4>
+                    {selectedFolder.archived_file_urls.map((fileUrl, index) => (
+                      <div key={index} style={{
+                        padding: '12px 16px',
+                        borderBottom: index < selectedFolder.archived_file_urls.length - 1 ? '1px solid #eee' : 'none',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        background: '#fafafa', borderRadius: '6px', marginBottom: '4px'
+                      }}>
+                        <span style={{ fontSize: '14px', color: '#888' }}>
+                          {getFileIcon(fileUrl.split('/').pop())} {fileUrl.split('/').pop()}
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => restoreIndividualFile(fileUrl)} className="btn-view" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                            ♻️ Restore
+                          </button>
+                          <button onClick={() => permanentDeleteIndividualFile(fileUrl)} className="btn-danger" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Add more files section */}
                 <div style={{ borderTop: '1px solid #ddd', paddingTop: '20px' }}>
@@ -801,6 +897,17 @@ function FileList() {
                 onChange={(e) => setEditNotes(e.target.value)}
                 placeholder="Add any additional notes"
                 rows="4"
+                disabled={editLoading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Change Password <span style={{ fontWeight: 400, color: '#999', fontSize: '12px' }}>(leave blank to keep current)</span></label>
+              <input
+                type="password"
+                value={editNewPassword}
+                onChange={(e) => setEditNewPassword(e.target.value)}
+                placeholder="Enter new password"
                 disabled={editLoading}
               />
             </div>

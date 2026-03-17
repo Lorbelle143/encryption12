@@ -246,6 +246,8 @@
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
+  color: #333;
+  background: white;
   transition: border-color 0.2s;
 }
 
@@ -502,6 +504,7 @@
   padding: 12px 8px;
   font-size: 14px;
   background: transparent;
+  color: #333;
 }
 
 .search-input::placeholder {
@@ -588,4 +591,36 @@
   .search-input::placeholder {
     content: "Search folders...";
   }
+}
+
+/* Sort Bar */
+.sort-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.sort-btn {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sort-btn:hover {
+  background: #e4e4e4;
+  color: #333;
+}
+
+.sort-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
 }

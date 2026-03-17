@@ -20,19 +20,16 @@ function Dashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       if (!isAdmin()) return;
-      
       try {
         const { data, error } = await supabase
           .from('folders')
           .select('file_count');
-
         if (!error && data) {
           setTotalFolders(data.length);
-          const totalFileCount = data.reduce((sum, folder) => sum + (folder.file_count || 0), 0);
-          setTotalFiles(totalFileCount);
+          setTotalFiles(data.reduce((sum, f) => sum + (f.file_count || 0), 0));
         }
-      } catch (error) {
-        console.error('Error fetching stats:', error);
+      } catch {
+        // silently fail stats
       } finally {
         setStatsLoading(false);
       }
@@ -84,15 +81,17 @@ function Dashboard() {
     <div className="page dashboard-page">
       <header className="header dashboard-header">
         <div className="header-left">
+          <div className="header-logo-mark">🏫</div>
           <div className="header-info">
             <h1>NBSC Guidance Counseling</h1>
-            <p className="header-subtitle">Secure Document Management</p>
+            <p className="header-subtitle">Document Management System</p>
           </div>
         </div>
         <div className="header-right">
-          <div className="user-info">
+          <div className="user-chip">
+            <div className="user-avatar">A</div>
             <span className="user-name">Administrator</span>
-            <span className="badge badge-admin">{role}</span>
+            <span className="badge badge-admin">ADMIN</span>
           </div>
           <button onClick={handleLogout} className="btn-logout">
             <span className="btn-icon">🚪</span>
@@ -104,8 +103,8 @@ function Dashboard() {
       <div className="content dashboard-content">
         <div className="welcome-banner">
           <div className="welcome-text">
-            <h2>Welcome back, Admin! 👋</h2>
-            <p>Manage your encrypted office forms and documents securely</p>
+            <h2>Welcome back, Admin 👋</h2>
+            <p>Manage and organize your documents securely</p>
           </div>
           <div className="quick-stats">
             <div className="stat-card">
@@ -144,11 +143,7 @@ function Dashboard() {
               </div>
             </div>
 
-            <div className="action-card files-card" onClick={() => {
-              console.log('Files card clicked!');
-              console.log('Navigating to /files');
-              history.push('/files');
-            }}>
+            <div className="action-card files-card" onClick={() => history.push('/files')}>
               <div className="card-header">
                 <div className="card-icon files-icon">
                   <span>📁</span>

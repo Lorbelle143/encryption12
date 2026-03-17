@@ -26,6 +26,24 @@
 .file-input-label {
   cursor: pointer;
   display: block;
+  border: 2px dashed #ddd;
+  border-radius: 12px;
+  padding: 32px;
+  text-align: center;
+  transition: all 0.2s;
+  background: #fafafa;
+}
+
+.file-input-label:hover {
+  border-color: #3b82f6;
+  background: #f0f7ff;
+}
+
+.file-input-label.dragging {
+  border-color: #3b82f6;
+  background: #e8f2ff;
+  transform: scale(1.01);
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
 }
 
 .file-icon {
