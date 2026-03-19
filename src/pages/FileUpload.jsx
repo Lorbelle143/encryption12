@@ -1,171 +1,140 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useHistory } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../hooks/useAuth';
 import { hashPassword } from '../lib/crypto';
 import './FileUpload.css';
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const ALLOWED_EXTS = '.pdf,.jpg,.jpeg,.png,.gif,.webp';
+
+const addAuditEntry = (action, detail) => {
+  try {
+    const log = JSON.parse(localStorage.getItem('auditLog') || '[]');
+    log.unshift({ action, detail, time: new Date().toISOString() });
+    localStorage.setItem('auditLog', JSON.stringify(log.slice(0, 100)));
+  } catch {}
+};
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
 function FileUpload() {
-  const { isAdmin, loading: authLoading } = useAuth();
   const history = useHistory();
   const [folderName, setFolderName] = useState('');
-  const [folderPassword, setFolderPassword] = useState('');
-  const [classification, setClassification] = useState('CONFIDENTIAL');
+  const [classification, setClassification] = useState('PUBLIC');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [notes, setNotes] = useState('');
-  const [files, setFiles] = useState([]);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [isDragging, setIsDragging] = useState(false);
+  const [messageType, setMessageType] = useState('');
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    if (authLoading) return; // ⛔ wait for auth
-    if (!isAdmin()) {
-      history.push('/dashboard');
+  const addFiles = useCallback((newFiles) => {
+    const valid = [];
+    const errors = [];
+    for (const file of newFiles) {
+      if (!ALLOWED_TYPES.includes(file.type)) { errors.push(file.name + ': unsupported type'); continue; }
+      if (file.size > MAX_FILE_SIZE) { errors.push(file.name + ': exceeds 10MB'); continue; }
+      valid.push(file);
     }
-  }, [authLoading, isAdmin, history]);
+    if (errors.length > 0) { setMessage(errors.join(', ')); setMessageType('error'); }
+    setSelectedFiles(prev => {
+      const existing = new Set(prev.map(f => f.name + f.size));
+      return [...prev, ...valid.filter(f => !existing.has(f.name + f.size))];
+    });
+  }, []);
 
-  const validateFiles = (selectedFiles) => {
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    const invalid = selectedFiles.filter(f => !allowedTypes.includes(f.type) || f.size > 10 * 1024 * 1024);
-    return invalid.length === 0;
-  };
+  const handleFileChange = (e) => { addFiles(Array.from(e.target.files)); e.target.value = ''; };
+  const handleDragOver = (e) => { e.preventDefault(); setDragging(true); };
+  const handleDragLeave = () => setDragging(false);
+  const handleDrop = (e) => { e.preventDefault(); setDragging(false); addFiles(Array.from(e.dataTransfer.files)); };
+  const removeFile = (index) => setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  const clearAll = () => { setSelectedFiles([]); if (fileInputRef.current) fileInputRef.current.value = ''; };
+  const totalSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
 
-  const handleFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    if (selectedFiles.length === 0) { setMessage('Please select at least one file'); setFiles([]); return; }
-    if (!validateFiles(selectedFiles)) { setMessage('Files must be PDF or image (JPG, PNG, GIF, WEBP) and less than 10MB each'); setFiles([]); return; }
-    setFiles(selectedFiles);
-    setMessage('');
-  };
-
-  const handleDrop = (e) => {
+  const handleUpload = async (e) => {
     e.preventDefault();
-    setIsDragging(false);
-    const dropped = Array.from(e.dataTransfer.files);
-    if (dropped.length === 0) return;
-    if (!validateFiles(dropped)) { setMessage('Files must be PDF or image (JPG, PNG, GIF, WEBP) and less than 10MB each'); return; }
-    setFiles(prev => [...prev, ...dropped]);
-    setMessage('');
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (files.length === 0) {
-      setMessage('Please select files to upload');
-      return;
-    }
-    
-    setLoading(true);
-    setMessage('');
-    setProgress({ done: 0, total: files.length });
-
+    setMessage(''); setMessageType('');
+    if (!folderName.trim()) { setMessage('Folder name is required.'); setMessageType('error'); return; }
+    if (!password.trim()) { setMessage('Password is required.'); setMessageType('error'); return; }
+    if (selectedFiles.length === 0) { setMessage('Please select at least one file.'); setMessageType('error'); return; }
+    setUploading(true);
     try {
       const timestamp = Date.now();
-      const BATCH_SIZE = 10; // upload 10 at a time
-      const uploadedFiles = new Array(files.length);
-
-      for (let i = 0; i < files.length; i += BATCH_SIZE) {
-        const batch = files.slice(i, i + BATCH_SIZE);
-        await Promise.all(batch.map(async (file, batchIndex) => {
-          const globalIndex = i + batchIndex;
-          const fileName = `${folderName}/${timestamp}_${file.name}`;
-          const { error } = await supabase.storage
-            .from('office-forms')
-            .upload(fileName, file, { cacheControl: '3600', upsert: false });
-          if (error) throw new Error(`Upload failed for ${file.name}: ${error.message}`);
-          uploadedFiles[globalIndex] = fileName;
-          setProgress(p => ({ ...p, done: p.done + 1 }));
-        }));
+      const uploadedUrls = [];
+      for (const file of selectedFiles) {
+        const filePath = folderName.trim() + '/' + timestamp + '_' + file.name;
+        const { error } = await supabase.storage
+          .from('office-forms')
+          .upload(filePath, file, { cacheControl: '3600', upsert: false });
+        if (error) throw error;
+        uploadedUrls.push(filePath);
       }
-
-      // Hash password before storing
-      const hashedPassword = await hashPassword(folderPassword);
-
-      const { error: dbError } = await supabase
-        .from('folders')
-        .insert({
-          folder_name: folderName.trim(),
-          folder_password: hashedPassword,
-          classification,
-          notes: notes.trim(),
-          file_count: files.length,
-          file_urls: uploadedFiles
-        });
-
-      if (dbError) throw new Error('Failed to save folder. Please try again.');
-
-      setMessage(`Folder uploaded successfully! (${files.length} files)`);
-      setFolderName('');
-      setFolderPassword('');
-      setNotes('');
-      setFiles([]);
-      setProgress({ done: 0, total: 0 });
-
-      const fileInput = document.getElementById('file-input');
-      if (fileInput) fileInput.value = '';
-
-      setTimeout(() => {
-        setMessage('');
-        history.push('/files');
-      }, 2000);
-    } catch (error) {
-      setMessage(error.message || 'An error occurred during upload');
+      const hashedPassword = await hashPassword(password.trim());
+      const { error: dbError } = await supabase.from('folders').insert([{
+        folder_name: folderName.trim(),
+        classification,
+        folder_password: hashedPassword,
+        notes: notes.trim() || null,
+        file_urls: uploadedUrls,
+        file_count: uploadedUrls.length,
+        is_archived: false,
+        archived_file_urls: [],
+        custom_names: {},
+      }]);
+      if (dbError) throw dbError;
+      addAuditEntry('Uploaded Folder', '"' + folderName.trim() + '" (' + uploadedUrls.length + ' file(s))');
+      setMessage('Successfully uploaded ' + uploadedUrls.length + ' file(s) to "' + folderName.trim() + '"!');
+      setMessageType('success');
+      setFolderName(''); setClassification('PUBLIC'); setPassword(''); setNotes(''); setSelectedFiles([]);
+    } catch (err) {
+      setMessage('Upload failed: ' + err.message);
+      setMessageType('error');
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
   return (
     <div className="page">
       <header className="header">
-        <button 
-          type="button"
-          onClick={() => history.push('/dashboard')} 
-          className="btn-back"
-        >
-          ← Back
+        <button type="button" onClick={() => history.push('/dashboard')} className="btn-back">
+          Back
         </button>
-        <h1>Upload File</h1>
+        <h1>Upload Document</h1>
+        <div />
       </header>
-
       <div className="content">
         <div className="form-card">
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleUpload}>
+
             <div className="form-group">
-              <label>Folder Name</label>
+              <label htmlFor="folder-name">Folder Name *</label>
               <input
+                id="folder-name"
                 type="text"
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
-                placeholder="Enter folder name"
+                placeholder="e.g. Student Records 2024"
+                disabled={uploading}
                 required
-                disabled={loading}
               />
             </div>
 
             <div className="form-group">
-              <label>Folder Password</label>
-              <input
-                type="password"
-                value={folderPassword}
-                onChange={(e) => setFolderPassword(e.target.value)}
-                placeholder="Set a password to protect this folder"
-                required
-                disabled={loading}
-              />
-              <small style={{ color: '#666', fontSize: '12px' }}>
-                This password will be required to view files in this folder
-              </small>
-            </div>
-
-            <div className="form-group">
-              <label>Classification Level</label>
+              <label htmlFor="classification">Classification Level *</label>
               <select
+                id="classification"
                 value={classification}
                 onChange={(e) => setClassification(e.target.value)}
-                disabled={loading}
+                disabled={uploading}
               >
                 <option value="PUBLIC">Public</option>
                 <option value="INTERNAL">Internal</option>
@@ -175,86 +144,139 @@ function FileUpload() {
             </div>
 
             <div className="form-group">
-              <label>Notes</label>
+              <label htmlFor="folder-password">Folder Password *</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="folder-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Set a password for this folder"
+                  disabled={uploading}
+                  style={{ paddingRight: '60px' }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={{
+                    position: 'absolute', right: '12px', top: '50%',
+                    transform: 'translateY(-50%)', background: 'none', border: 'none',
+                    cursor: 'pointer', fontSize: '12px', color: '#888', fontWeight: '600'
+                  }}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="notes">
+                Notes{' '}
+                <span style={{ fontWeight: 400, color: '#999', fontSize: '12px' }}>(optional)</span>
+              </label>
               <textarea
+                id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any additional notes"
-                rows="4"
-                disabled={loading}
+                placeholder="Add any relevant notes..."
+                rows="3"
+                disabled={uploading}
               />
             </div>
 
-            <div className="file-input-container">
+            <div className="form-group">
+              <label>
+                Files *{' '}
+                <span style={{ fontWeight: 400, color: '#999', fontSize: '12px' }}>
+                  PDF, JPG, PNG, GIF, WEBP — max 10MB each
+                </span>
+              </label>
               <label
-                htmlFor="file-input"
-                className={`file-input-label ${isDragging ? 'dragging' : ''}`}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
+                className={dragging ? 'file-input-label dragging' : 'file-input-label'}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
               >
-                <div className="file-icon">{isDragging ? '📂' : '📁'}</div>
-                <strong>{isDragging ? 'Drop files here' : 'Drag & drop or click to choose files'}</strong>
-                <p>PDF or images (JPG, PNG, GIF, WEBP) — Max 10MB each</p>
+                <div className="file-icon">📂</div>
+                <strong>Click to browse or drag and drop files here</strong>
+                <p>Supports PDF and images (JPG, PNG, GIF, WEBP)</p>
                 <input
-                  id="file-input"
+                  ref={fileInputRef}
                   type="file"
-                  accept=".pdf,application/pdf,image/*"
-                  onChange={handleFileChange}
-                  disabled={loading}
+                  accept={ALLOWED_EXTS}
                   multiple
+                  onChange={handleFileChange}
+                  disabled={uploading}
                 />
               </label>
-              {files.length > 0 && (
-                <div className="selected-files">
-                  <p><strong>{files.length} file(s) selected:</strong></p>
-                  {files.map((file, index) => (
-                    <div key={index} className="selected-file">
-                      <span className="file-name">📄 {file.name}</span>
-                      <span className="file-size">({(file.size / 1024).toFixed(2)} KB)</span>
+            </div>
+
+            {selectedFiles.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#555' }}>
+                    {selectedFiles.length} file(s) — {formatSize(totalSize)} total
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearAll}
+                    disabled={uploading}
+                    style={{ fontSize: '12px', color: '#eb445a', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <div style={{ border: '1px solid #e0e0e0', borderRadius: '8px', overflow: 'hidden' }}>
+                  {selectedFiles.map((file, i) => (
+                    <div
+                      key={i}
+                      className="selected-file"
+                      style={{ borderBottom: i < selectedFiles.length - 1 ? '1px solid #f0f0f0' : 'none', borderRadius: 0 }}
+                    >
+                      <span className="file-name">
+                        {file.type.startsWith('image/') ? '🖼️' : '📄'} {file.name}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className="file-size">{formatSize(file.size)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i)}
+                          disabled={uploading}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#eb445a', fontSize: '18px', lineHeight: 1, padding: '0 2px' }}
+                        >
+                          x
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {message && (
-              <div className={`message ${message.includes('success') ? 'message-success' : 'message-error'}`}>
+              <div style={{
+                padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '14px',
+                background: messageType === 'success' ? '#f0fdf4' : '#fef2f2',
+                color: messageType === 'success' ? '#16a34a' : '#dc2626',
+                border: '1px solid ' + (messageType === 'success' ? '#bbf7d0' : '#fecaca')
+              }}>
                 {message}
               </div>
             )}
 
-            {loading && progress.total > 0 && (
-              <div style={{ margin: '12px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#666', marginBottom: '6px' }}>
-                  <span>Uploading files...</span>
-                  <span>{progress.done} / {progress.total}</span>
-                </div>
-                <div style={{ background: '#e0e0e0', borderRadius: '99px', height: '8px', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    borderRadius: '99px',
-                    background: 'var(--primary, #3880ff)',
-                    width: `${Math.round((progress.done / progress.total) * 100)}%`,
-                    transition: 'width 0.2s ease'
-                  }} />
-                </div>
-              </div>
-            )}
-
-            <button 
-              type="submit" 
-              className="btn-primary" 
-              disabled={loading || files.length === 0}
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={uploading || selectedFiles.length === 0}
             >
-              {loading ? `Uploading... (${progress.done}/${progress.total})` : '☁️ Upload Folder'}
+              {uploading
+                ? 'Uploading...'
+                : 'Upload' + (selectedFiles.length > 0
+                    ? ' (' + selectedFiles.length + ' file' + (selectedFiles.length > 1 ? 's' : '') + ')'
+                    : '')}
             </button>
-            
-            {files.length === 0 && (
-              <p style={{ color: '#eb445a', fontSize: '14px', marginTop: '8px', textAlign: 'center' }}>
-                Please select files before uploading
-              </p>
-            )}
+
           </form>
         </div>
       </div>

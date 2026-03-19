@@ -5,6 +5,18 @@ import './Splash.css';
 function Splash() {
   const history = useHistory();
 
+  useEffect(() => {
+    // If already authenticated, skip splash and go to dashboard
+    const isAuthenticated = localStorage.getItem('isAuthenticated');
+    const authTime = localStorage.getItem('authTime');
+    if (isAuthenticated === 'true' && authTime) {
+      const elapsed = Date.now() - parseInt(authTime);
+      if (elapsed < 24 * 60 * 60 * 1000) {
+        history.replace('/dashboard');
+      }
+    }
+  }, [history]);
+
   return (
     <div className="splash-page">
       <div className="splash-bg" />

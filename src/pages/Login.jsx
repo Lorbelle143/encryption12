@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { hashPassword } from '../lib/crypto';
+import { createSession } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 import nbscLogo from '../assets/nbsc-logo.png';
 import gcoLogo from '../assets/gco-logo.png';
 import './Login.css';
@@ -37,15 +39,25 @@ function Login() {
         throw new Error(`Too many failed attempts. Try again in ${remaining} minute(s).`);
       }
 
-      const storedHash = import.meta.env.VITE_MASTER_KEY_HASH;
+      // Fetch hash from Supabase settings, fallback to .env
+      let storedHash = null;
+      const { data: setting } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'master_password_hash')
+        .single();
+      if (setting?.value) {
+        storedHash = setting.value;
+      } else {
+        storedHash = import.meta.env.VITE_MASTER_KEY_HASH;
+      }
       if (!storedHash) throw new Error('System not configured. Contact administrator.');
 
       const inputHash = await hashPassword(masterKey);
 
       if (inputHash === storedHash) {
         localStorage.removeItem('loginAttempts');
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('authTime', Date.now().toString());
+        createSession();
         history.push('/dashboard');
       } else {
         const newCount = count >= MAX_ATTEMPTS ? 1 : count + 1;
