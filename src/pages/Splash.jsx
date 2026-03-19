@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useHistory } from 'react-router-dom';
+import nbscLogo from '../assets/nbsc-logo.png';
 import './Splash.css';
 
 function Splash() {
@@ -23,7 +24,7 @@ function Splash() {
 
       <div className="splash-content">
         <div className="splash-logo-ring">
-          <span className="splash-logo-text">GCO</span>
+          <img src={nbscLogo} alt="NBSC Logo" className="splash-logo-img" />
         </div>
 
         <h1 className="splash-title">Guidance Counseling Office</h1>
