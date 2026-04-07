@@ -3,21 +3,13 @@ import { useHistory } from 'react-router-dom';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { supabase } from '../lib/supabase';
+import { uploadFile, getFileUrl, deleteFileFromStorage, getFileName, decodeFileRef } from '../lib/storage';
 import { useAuth } from '../hooks/useAuth';
 import { verifyPassword, hashPassword } from '../lib/crypto';
+import { addAuditEntry, getAuditLog, clearAuditLog } from '../lib/audit';
 import './FileList.css';
 
 const PAGE_SIZE = 12;
-
-// Audit log helpers
-const getAuditLog = () => {
-  try { return JSON.parse(localStorage.getItem('auditLog') || '[]'); } catch { return []; }
-};
-const addAuditEntry = (action, detail) => {
-  const log = getAuditLog();
-  log.unshift({ action, detail, time: new Date().toISOString() });
-  localStorage.setItem('auditLog', JSON.stringify(log.slice(0, 100))); // keep last 100
-};
 
 function FileList() {
   const { isAdmin, loading: authLoading } = useAuth();
@@ -92,20 +84,6 @@ function FileList() {
     return '📄';
   };
 
-  const getMimeType = (fileName) => {
-    const ext = fileName.split('.').pop().toLowerCase();
-    if (['jpg', 'jpeg'].includes(ext)) return 'image/jpeg';
-    if (ext === 'png') return 'image/png';
-    if (ext === 'gif') return 'image/gif';
-    if (ext === 'webp') return 'image/webp';
-    return 'application/pdf';
-  };
-
-  const isImage = (fileName) => {
-    const ext = fileName.split('.').pop().toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
-  };
-
   const openFolder = (folder) => {
     setSelectedFolder(folder);
     setShowPasswordModal(true);
@@ -174,13 +152,10 @@ function FileList() {
     if (addFiles.length === 0) { alert('Please select files to add'); return; }
     setAddingFiles(true);
     try {
-      const timestamp = Date.now();
       const uploadedFiles = [];
       for (const file of addFiles) {
-        const fileName = `${selectedFolder.folder_name}/${timestamp}_${file.name}`;
-        const { error } = await supabase.storage.from('office-forms').upload(fileName, file, { cacheControl: '3600', upsert: false });
-        if (error) throw error;
-        uploadedFiles.push(fileName);
+        const { ref } = await uploadFile(file, selectedFolder.folder_name);
+        uploadedFiles.push(ref);
       }
       const updatedFileUrls = [...selectedFolder.file_urls, ...uploadedFiles];
       const { error: dbError } = await supabase.from('folders').update({ file_urls: updatedFileUrls, file_count: updatedFileUrls.length }).eq('id', selectedFolder.id);
@@ -199,14 +174,14 @@ function FileList() {
 
   const downloadFile = async (fileUrl) => {
     try {
-      const { data, error } = await supabase.storage.from('office-forms').download(fileUrl);
-      if (error) throw error;
-      const blob = new Blob([data], { type: getMimeType(fileUrl) });
-      const url = URL.createObjectURL(blob);
+      const { url, isBlob } = await getFileUrl(fileUrl);
       const a = document.createElement('a');
-      a.href = url; a.download = fileUrl.split('/').pop(); a.click();
-      URL.revokeObjectURL(url);
-      addAuditEntry('Downloaded File', fileUrl.split('/').pop());
+      a.href = url;
+      a.download = getFileName(fileUrl);
+      a.target = '_blank';
+      a.click();
+      if (isBlob) URL.revokeObjectURL(url);
+      addAuditEntry('Downloaded File', getFileName(fileUrl));
     } catch (error) {
       alert('Error downloading file: ' + error.message);
     }
@@ -218,9 +193,11 @@ function FileList() {
     try {
       const zip = new JSZip();
       for (const fileUrl of selectedFolder.file_urls) {
-        const { data, error } = await supabase.storage.from('office-forms').download(fileUrl);
-        if (error) throw error;
-        zip.file(fileUrl.split('/').pop(), data);
+        const { url, isBlob } = await getFileUrl(fileUrl);
+        const res = await fetch(url);
+        const blob = await res.blob();
+        zip.file(getFileName(fileUrl), blob);
+        if (isBlob) URL.revokeObjectURL(url);
       }
       const blob = await zip.generateAsync({ type: 'blob' });
       saveAs(blob, `${selectedFolder.folder_name}.zip`);
@@ -234,16 +211,15 @@ function FileList() {
 
   const viewFile = async (fileUrl) => {
     setPreviewLoading(true);
-    setPreviewName(fileUrl.split('/').pop());
+    setPreviewName(getFileName(fileUrl));
     try {
-      const { data, error } = await supabase.storage.from('office-forms').download(fileUrl);
-      if (error) throw error;
-      const mime = getMimeType(fileUrl);
-      const blob = new Blob([data], { type: mime });
-      const url = URL.createObjectURL(blob);
+      const { url, isBlob } = await getFileUrl(fileUrl);
+      if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(url);
-      setPreviewType(isImage(fileUrl) ? 'image' : 'pdf');
-      addAuditEntry('Viewed File', fileUrl.split('/').pop());
+      const name = getFileName(fileUrl);
+      const ext = name.split('.').pop().toLowerCase();
+      setPreviewType(['jpg','jpeg','png','gif','webp'].includes(ext) ? 'image' : 'pdf');
+      addAuditEntry('Viewed File', name);
     } catch (error) {
       alert('Error loading file: ' + error.message);
     } finally {
@@ -261,7 +237,14 @@ function FileList() {
   // Get display name — uses custom_names map if set, else original filename
   const getDisplayName = (fileUrl) => {
     const customNames = selectedFolder?.custom_names || {};
-    return customNames[fileUrl] || fileUrl.split('/').pop();
+    return customNames[fileUrl] || getFileName(fileUrl);
+  };
+
+  const getProviderBadge = (fileUrl) => {
+    const ref = decodeFileRef(fileUrl);
+    return ref.provider === 'cloudinary'
+      ? <span style={{ fontSize: '10px', background: '#e0f2fe', color: '#0369a1', borderRadius: '4px', padding: '1px 5px', fontWeight: '600', marginLeft: '6px' }}>☁ CDN</span>
+      : <span style={{ fontSize: '10px', background: '#f0fdf4', color: '#15803d', borderRadius: '4px', padding: '1px 5px', fontWeight: '600', marginLeft: '6px' }}>SB</span>;
   };
 
   const startRename = (fileUrl) => {
@@ -312,7 +295,9 @@ function FileList() {
   const permanentDelete = async (folderId, fileUrls) => {
     if (!window.confirm('Permanently delete this folder and all its files? This cannot be undone.')) return;
     try {
-      if (fileUrls && fileUrls.length > 0) await supabase.storage.from('office-forms').remove(fileUrls);
+      if (fileUrls && fileUrls.length > 0) {
+        for (const ref of fileUrls) await deleteFileFromStorage(ref);
+      }
       const { error } = await supabase.from('folders').delete().eq('id', folderId);
       if (error) throw error;
       addAuditEntry('Permanently Deleted Folder', folderId);
@@ -346,13 +331,13 @@ function FileList() {
   };
 
   const permanentDeleteIndividualFile = async (fileUrl) => {
-    if (!window.confirm(`Permanently delete "${fileUrl.split('/').pop()}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Permanently delete "${getFileName(fileUrl)}"? This cannot be undone.`)) return;
     try {
-      await supabase.storage.from('office-forms').remove([fileUrl]);
+      await deleteFileFromStorage(fileUrl);
       const updatedArchived = (selectedFolder.archived_file_urls || []).filter(u => u !== fileUrl);
       const { error } = await supabase.from('folders').update({ archived_file_urls: updatedArchived }).eq('id', selectedFolder.id);
       if (error) throw error;
-      addAuditEntry('Permanently Deleted File', fileUrl.split('/').pop());
+      addAuditEntry('Permanently Deleted File', getFileName(fileUrl));
       setSelectedFolder({ ...selectedFolder, archived_file_urls: updatedArchived });
       fetchFiles();
     } catch (error) { alert('Error deleting file: ' + error.message); }
@@ -447,7 +432,7 @@ function FileList() {
         <button type="button" onClick={() => history.push('/dashboard')} className="btn-back">← Back</button>
         <h1>Files</h1>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          <button onClick={() => { setAuditLog(getAuditLog()); setShowAuditLog(true); }} className="btn-secondary btn-small" title="Audit Log">📋 Log</button>
+          <button onClick={async () => { setAuditLog(await getAuditLog()); setShowAuditLog(true); }} className="btn-secondary btn-small" title="Audit Log">📋 Log</button>
           <button onClick={() => setShowArchived(!showArchived)} className="btn-secondary btn-small" style={{ marginRight: '8px' }}>
             {showArchived ? '📂 Active' : `🗄️ Archived${archivedFiles.length > 0 ? ` (${archivedFiles.length})` : ''}`}
           </button>
@@ -668,7 +653,7 @@ function FileList() {
                           </div>
                         ) : (
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '14px', fontWeight: '500' }}>{getFileIcon(fileUrl.split('/').pop())} {getDisplayName(fileUrl)}</span>
+                            <span style={{ fontSize: '14px', fontWeight: '500' }}>{getFileIcon(getFileName(fileUrl))} {getDisplayName(fileUrl)}{getProviderBadge(fileUrl)}</span>
                             <div style={{ display: 'flex', gap: '6px' }}>
                               <button onClick={() => viewFile(fileUrl)} className="btn-view" style={{ padding: '6px 10px', fontSize: '12px' }}>👁️</button>
                               <button onClick={() => downloadFile(fileUrl)} className="btn-secondary" style={{ padding: '6px 10px', fontSize: '12px' }}>⬇️</button>
@@ -683,8 +668,8 @@ function FileList() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px', padding: '12px' }}>
                       {filteredModalFiles.map((fileUrl, index) => (
                         <div key={index} style={{ background: 'white', borderRadius: '8px', padding: '12px', textAlign: 'center', border: '1px solid #e0e0e0' }}>
-                          <div style={{ fontSize: '40px', marginBottom: '8px' }}>{getFileIcon(fileUrl.split('/').pop())}</div>
-                          <div style={{ fontSize: '12px', fontWeight: '500', marginBottom: '8px', wordBreak: 'break-word', lineHeight: '1.3' }}>{getDisplayName(fileUrl)}</div>
+                          <div style={{ fontSize: '40px', marginBottom: '8px' }}>{getFileIcon(getFileName(fileUrl))}</div>
+                          <div style={{ fontSize: '12px', fontWeight: '500', marginBottom: '8px', wordBreak: 'break-word', lineHeight: '1.3' }}>{getDisplayName(fileUrl)}{getProviderBadge(fileUrl)}</div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <button onClick={() => viewFile(fileUrl)} className="btn-view" style={{ padding: '5px', fontSize: '11px', width: '100%' }}>👁️ Preview</button>
                             <button onClick={() => downloadFile(fileUrl)} className="btn-secondary" style={{ padding: '5px', fontSize: '11px', width: '100%' }}>⬇️ Download</button>
@@ -703,7 +688,7 @@ function FileList() {
                     <h4 style={{ color: '#888', marginBottom: '10px' }}>🗄️ Archived Files ({selectedFolder.archived_file_urls.length})</h4>
                     {selectedFolder.archived_file_urls.map((fileUrl, index) => (
                       <div key={index} style={{ padding: '10px 14px', borderBottom: index < selectedFolder.archived_file_urls.length - 1 ? '1px solid #eee' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', borderRadius: '6px', marginBottom: '4px' }}>
-                        <span style={{ fontSize: '13px', color: '#888' }}>{getFileIcon(fileUrl.split('/').pop())} {fileUrl.split('/').pop()}</span>
+                        <span style={{ fontSize: '13px', color: '#888' }}>{getFileIcon(getFileName(fileUrl))} {getFileName(fileUrl)}</span>
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button onClick={() => restoreIndividualFile(fileUrl)} className="btn-view" style={{ padding: '5px 10px', fontSize: '12px' }}>♻️ Restore</button>
                           <button onClick={() => permanentDeleteIndividualFile(fileUrl)} className="btn-danger" style={{ padding: '5px 10px', fontSize: '12px' }}>🗑️</button>
@@ -799,7 +784,7 @@ function FileList() {
               </div>
             )}
             {auditLog.length > 0 && (
-              <button onClick={() => { localStorage.removeItem('auditLog'); setAuditLog([]); }} className="btn-danger" style={{ marginTop: '16px', padding: '8px 16px', fontSize: '13px' }}>
+              <button onClick={async () => { await clearAuditLog(); setAuditLog([]); }} className="btn-danger" style={{ marginTop: '16px', padding: '8px 16px', fontSize: '13px' }}>
                 Clear Log
               </button>
             )}

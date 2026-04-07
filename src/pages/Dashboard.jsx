@@ -3,6 +3,8 @@ import { useHistory } from 'react-router-dom';
 import { useAuth, clearSession } from '../hooks/useAuth';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { supabase } from '../lib/supabase';
+import { decodeFileRef } from '../lib/storage';
+import { getAuditLog } from '../lib/audit';
 import gcoLogo from '../assets/gco-logo.png';
 import './Dashboard.css';
 
@@ -14,6 +16,8 @@ function Dashboard() {
   const history = useHistory();
   const [totalFiles, setTotalFiles] = useState(0);
   const [totalFolders, setTotalFolders] = useState(0);
+  const [cloudinaryCount, setCloudinaryCount] = useState(0);
+  const [supabaseCount, setSupabaseCount] = useState(0);
   const [statsLoading, setStatsLoading] = useState(true);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [recentActivity, setRecentActivity] = useState([]);
@@ -52,10 +56,21 @@ function Dashboard() {
     const fetchStats = async () => {
       if (!isAdmin()) return;
       try {
-        const { data } = await supabase.from('folders').select('file_count');
+        const { data } = await supabase.from('folders').select('file_count, file_urls').eq('is_archived', false);
         if (data) {
           setTotalFolders(data.length);
-          setTotalFiles(data.reduce((s, f) => s + (f.file_count || 0), 0));
+          let total = 0, cdn = 0, sb = 0;
+          for (const folder of data) {
+            total += folder.file_count || 0;
+            for (const url of (folder.file_urls || [])) {
+              const ref = decodeFileRef(url);
+              if (ref.provider === 'cloudinary') cdn++;
+              else sb++;
+            }
+          }
+          setTotalFiles(total);
+          setCloudinaryCount(cdn);
+          setSupabaseCount(sb);
         }
       } catch { /* silent */ } finally { setStatsLoading(false); }
     };
@@ -64,10 +79,7 @@ function Dashboard() {
 
   // Load recent audit log
   useEffect(() => {
-    try {
-      const log = JSON.parse(localStorage.getItem('auditLog') || '[]');
-      setRecentActivity(log.slice(0, 5));
-    } catch { setRecentActivity([]); }
+    getAuditLog(5).then(log => setRecentActivity(log)).catch(() => setRecentActivity([]));
   }, []);
 
   const handleChangePw = async () => {
@@ -173,6 +185,20 @@ function Dashboard() {
               <div className="stat-info">
                 <span className="stat-label">Total Files</span>
                 <span className="stat-value">{statsLoading ? '...' : totalFiles}</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">☁️</div>
+              <div className="stat-info">
+                <span className="stat-label">Cloudinary</span>
+                <span className="stat-value">{statsLoading ? '...' : cloudinaryCount}</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">🗄️</div>
+              <div className="stat-info">
+                <span className="stat-label">Supabase</span>
+                <span className="stat-value">{statsLoading ? '...' : supabaseCount}</span>
               </div>
             </div>
           </div>

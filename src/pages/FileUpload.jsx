@@ -1,20 +1,14 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useHistory } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { uploadFile } from '../lib/storage';
 import { hashPassword } from '../lib/crypto';
+import { addAuditEntry } from '../lib/audit';
 import './FileUpload.css';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const ALLOWED_EXTS = '.pdf,.jpg,.jpeg,.png,.gif,.webp';
-
-const addAuditEntry = (action, detail) => {
-  try {
-    const log = JSON.parse(localStorage.getItem('auditLog') || '[]');
-    log.unshift({ action, detail, time: new Date().toISOString() });
-    localStorage.setItem('auditLog', JSON.stringify(log.slice(0, 100)));
-  } catch {}
-};
 
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
@@ -67,15 +61,14 @@ function FileUpload() {
     if (selectedFiles.length === 0) { setMessage('Please select at least one file.'); setMessageType('error'); return; }
     setUploading(true);
     try {
-      const timestamp = Date.now();
       const uploadedUrls = [];
+      let cloudinaryCount = 0;
+      let supabaseCount = 0;
       for (const file of selectedFiles) {
-        const filePath = folderName.trim() + '/' + timestamp + '_' + file.name;
-        const { error } = await supabase.storage
-          .from('office-forms')
-          .upload(filePath, file, { cacheControl: '3600', upsert: false });
-        if (error) throw error;
-        uploadedUrls.push(filePath);
+        const { ref, provider } = await uploadFile(file, folderName.trim());
+        uploadedUrls.push(ref);
+        if (provider === 'cloudinary') cloudinaryCount++;
+        else supabaseCount++;
       }
       const hashedPassword = await hashPassword(password.trim());
       const { error: dbError } = await supabase.from('folders').insert([{
@@ -90,8 +83,11 @@ function FileUpload() {
         custom_names: {},
       }]);
       if (dbError) throw dbError;
-      addAuditEntry('Uploaded Folder', '"' + folderName.trim() + '" (' + uploadedUrls.length + ' file(s))');
-      setMessage('Successfully uploaded ' + uploadedUrls.length + ' file(s) to "' + folderName.trim() + '"!');
+      await addAuditEntry('Uploaded Folder', '"' + folderName.trim() + '" (' + uploadedUrls.length + ' file(s))');
+      const providerNote = cloudinaryCount > 0 && supabaseCount > 0
+        ? ` (${cloudinaryCount} via Cloudinary, ${supabaseCount} via Supabase)`
+        : cloudinaryCount > 0 ? ' via Cloudinary' : ' via Supabase';
+      setMessage('Successfully uploaded ' + uploadedUrls.length + ' file(s) to "' + folderName.trim() + '"!' + providerNote);
       setMessageType('success');
       setFolderName(''); setClassification('PUBLIC'); setPassword(''); setNotes(''); setSelectedFiles([]);
     } catch (err) {
