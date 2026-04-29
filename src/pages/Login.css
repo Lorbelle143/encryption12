@@ -288,3 +288,39 @@
     font-size: 22px;
   }
 }
+
+/* Back to home button */
+.login-back-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 28px;
+  transition: color 0.2s;
+}
+.login-back-home:hover { color: #111; }
+
+/* Footer links below form */
+.login-footer-links {
+  margin-top: 20px;
+  text-align: center;
+}
+.login-privacy-link {
+  background: none;
+  border: none;
+  color: #bbb;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+.login-privacy-link:hover { color: #555; }

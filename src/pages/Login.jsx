@@ -114,6 +114,14 @@ function Login() {
       {/* RIGHT — form panel */}
       <div className="login-right">
         <div className="login-form-wrap">
+          <button
+            type="button"
+            className="login-back-home"
+            onClick={() => history.push('/')}
+          >
+            ← Back to Home
+          </button>
+
           <div className="login-form-header">
             <h2>Welcome Back</h2>
             <p>Enter your master key to access the system.</p>
@@ -151,6 +159,7 @@ function Login() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
         </div>
       </div>
 
