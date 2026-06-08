@@ -105,7 +105,9 @@ function FileUpload() {
       setFolderName(''); setClassification('PUBLIC'); setPassword(''); setNotes('');
       setResponsibleController('Jo Augustine G. Corpuz / John Ford N. Ganzan');
       setStorageLocation('');
-      setSelectedFiles([]);    } catch (err) {
+      setSelectedFiles([]);
+      // Redirect immediately to files page
+      history.push('/files');} catch (err) {
       setMessage('Upload failed: ' + err.message);
       setMessageType('error');
     } finally {
