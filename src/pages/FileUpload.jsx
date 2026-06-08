@@ -71,6 +71,13 @@ function FileUpload() {
         else supabaseCount++;
       }
       const hashedPassword = await hashPassword(password.trim());
+
+      // Get next record number
+      const { data: existingFolders } = await supabase.from('folders').select('record_number').order('record_number', { ascending: false }).limit(1);
+      const nextNumber = existingFolders && existingFolders.length > 0 && existingFolders[0].record_number
+        ? existingFolders[0].record_number + 1
+        : 1;
+
       const { error: dbError } = await supabase.from('folders').insert([{
         folder_name: folderName.trim(),
         classification,
@@ -78,6 +85,7 @@ function FileUpload() {
         notes: notes.trim() || null,
         file_urls: uploadedUrls,
         file_count: uploadedUrls.length,
+        record_number: nextNumber,
         is_archived: false,
         archived_file_urls: [],
         custom_names: {},

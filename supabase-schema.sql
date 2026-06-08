@@ -160,3 +160,17 @@ CREATE POLICY "Public can delete masterlist" ON masterlist FOR DELETE TO public 
 CREATE TRIGGER update_masterlist_updated_at
 BEFORE UPDATE ON masterlist
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- RECORD NUMBER COLUMN (run if table already exists)
+-- ============================================
+ALTER TABLE folders ADD COLUMN IF NOT EXISTS record_number INTEGER;
+
+-- Backfill existing rows with sequential numbers based on created_at
+UPDATE folders
+SET record_number = sub.rn
+FROM (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY created_at ASC) AS rn
+  FROM folders
+) sub
+WHERE folders.id = sub.id;

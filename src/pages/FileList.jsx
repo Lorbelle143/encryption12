@@ -35,8 +35,8 @@ function FileList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [modalSearchTerm, setModalSearchTerm] = useState('');
   const [showArchived, setShowArchived] = useState(false);
-  const [sortBy, setSortBy] = useState('date');
-  const [sortDir, setSortDir] = useState('desc');
+  const [sortBy, setSortBy] = useState('number');
+  const [sortDir, setSortDir] = useState('asc');
   const [page, setPage] = useState(1);
   // Preview
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -62,7 +62,7 @@ function FileList() {
     const { data, error } = await supabase
       .from('folders')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('record_number', { ascending: true });
     if (!error) setFiles(data);
     setLoading(false);
   };
@@ -414,10 +414,11 @@ function FileList() {
     )
     .sort((a, b) => {
       let valA, valB;
-      if (sortBy === 'name') { valA = a.folder_name.toLowerCase(); valB = b.folder_name.toLowerCase(); }
+      if (sortBy === 'name')           { valA = a.folder_name.toLowerCase(); valB = b.folder_name.toLowerCase(); }
       else if (sortBy === 'classification') { valA = a.classification; valB = b.classification; }
-      else if (sortBy === 'count') { valA = a.file_count; valB = b.file_count; }
-      else { valA = new Date(a.created_at); valB = new Date(b.created_at); }
+      else if (sortBy === 'count')     { valA = a.file_count; valB = b.file_count; }
+      else if (sortBy === 'date')      { valA = new Date(a.created_at); valB = new Date(b.created_at); }
+      else /* number */                { valA = a.record_number ?? 9999; valB = b.record_number ?? 9999; }
       if (valA < valB) return sortDir === 'asc' ? -1 : 1;
       if (valA > valB) return sortDir === 'asc' ? 1 : -1;
       return 0;
@@ -449,7 +450,7 @@ function FileList() {
         </div>
         <div className="sort-bar">
           <span style={{ fontSize: '13px', color: '#666', marginRight: '8px' }}>Sort:</span>
-          {[['date','Date'],['name','Name'],['classification','Classification'],['count','Files']].map(([field, label]) => (
+          {[['number','No.'],['name','Name'],['classification','Classification'],['date','Date'],['count','Files']].map(([field, label]) => (
             <button key={field} onClick={() => handleSort(field)} className={`sort-btn ${sortBy === field ? 'active' : ''}`}>
               {label} {sortBy === field ? (sortDir === 'asc' ? '↑' : '↓') : ''}
             </button>
@@ -492,6 +493,10 @@ function FileList() {
                         onChange={() => toggleSelect(folder.id)}
                         style={{ width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }} />
                     )}
+                    {/* Record Number */}
+                    {folder.record_number != null && (
+                      <div className="record-number-badge">{folder.record_number}</div>
+                    )}
                     <div className="file-info" style={{ flex: 1 }}>
                       <div className="file-header">
                         <span className="file-icon-large">📁</span>
@@ -530,7 +535,12 @@ function FileList() {
                     <div key={folder.id} className="file-card">
                       <div className="file-card-header">
                         <span className="file-icon-xl">📁</span>
-                        <span className={`badge badge-${folder.classification.toLowerCase()}`}>{folder.classification}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                          {folder.record_number != null && (
+                            <div className="record-number-badge">{folder.record_number}</div>
+                          )}
+                          <span className={`badge badge-${folder.classification.toLowerCase()}`}>{folder.classification}</span>
+                        </div>
                       </div>
                       <div className="file-card-content">
                         <h3>{folder.folder_name}</h3>
