@@ -59,7 +59,8 @@ function FileUpload() {
     e.preventDefault();
     setMessage(''); setMessageType('');
     if (!folderName.trim()) { setMessage('Folder name is required.'); setMessageType('error'); return; }
-    if (!password.trim()) { setMessage('Password is required.'); setMessageType('error'); return; }
+    const needsPassword = !['PUBLIC','INTERNAL','NON-CONFIDENTIAL'].includes(classification);
+    if (needsPassword && !password.trim()) { setMessage('Password is required for this classification.'); setMessageType('error'); return; }
     if (selectedFiles.length === 0) { setMessage('Please select at least one file.'); setMessageType('error'); return; }
     setUploading(true);
     try {
@@ -72,7 +73,7 @@ function FileUpload() {
         if (provider === 'cloudinary') cloudinaryCount++;
         else supabaseCount++;
       }
-      const hashedPassword = await hashPassword(password.trim());
+      const hashedPassword = password.trim() ? await hashPassword(password.trim()) : '';
 
       // Get next record number
       const { data: existingFolders } = await supabase.from('folders').select('record_number').order('record_number', { ascending: false }).limit(1);
@@ -104,8 +105,7 @@ function FileUpload() {
       setFolderName(''); setClassification('PUBLIC'); setPassword(''); setNotes('');
       setResponsibleController('Jo Augustine G. Corpuz / John Ford N. Ganzan');
       setStorageLocation('');
-      setSelectedFiles([]);
-    } catch (err) {
+      setSelectedFiles([]);    } catch (err) {
       setMessage('Upload failed: ' + err.message);
       setMessageType('error');
     } finally {
@@ -155,6 +155,8 @@ function FileUpload() {
               </select>
             </div>
 
+            {/* Password field — hidden for Non-Confidential, Public, Internal */}
+            {!['PUBLIC','INTERNAL','NON-CONFIDENTIAL'].includes(classification) && (
             <div className="form-group">
               <label htmlFor="folder-password">Folder Password *</label>
               <div style={{ position: 'relative' }}>
@@ -181,6 +183,7 @@ function FileUpload() {
                 </button>
               </div>
             </div>
+            )} {/* end password conditional */}
 
             <div className="form-group">
               <label htmlFor="notes">

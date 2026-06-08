@@ -91,9 +91,11 @@ function FileList() {
     setShowPasswordModal(true);
     setPasswordInput('');
     setPasswordError('');
-    setIsUnlocked(false);
     setPreviewUrl(null);
     setPreviewType(null);
+    // Non-confidential folders open without a password
+    const noPassword = ['NON-CONFIDENTIAL', 'PUBLIC', 'INTERNAL'].includes(folder.classification?.toUpperCase());
+    setIsUnlocked(noPassword);
   };
 
   const openEditModal = (folder) => {
@@ -600,9 +602,28 @@ function FileList() {
       {showPasswordModal && selectedFolder && (
         <div className="modal-overlay" onClick={() => { setShowPasswordModal(false); closePreview(); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>🔒 Enter Password</h2>
-            <p>This folder is password protected</p>
-            <p><strong>{selectedFolder.folder_name}</strong></p>
+            {/* Dynamic header based on classification */}
+            {isUnlocked ? (
+              <>
+                <h2>📁 {selectedFolder.folder_name}</h2>
+                <p style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                  <span className={`badge badge-${selectedFolder.classification.toLowerCase().replace('-','').replace(' ','-')}`}>
+                    {selectedFolder.classification}
+                  </span>
+                  <span style={{ color: '#94a3b8', fontSize: '13px' }}>
+                    {['NON-CONFIDENTIAL','PUBLIC','INTERNAL'].includes(selectedFolder.classification?.toUpperCase())
+                      ? '🔓 Open access'
+                      : '🔒 Password protected'}
+                  </span>
+                </p>
+              </>
+            ) : (
+              <>
+                <h2>🔒 Enter Password</h2>
+                <p>This folder is password protected</p>
+                <p><strong>{selectedFolder.folder_name}</strong></p>
+              </>
+            )}
 
             {!isUnlocked && (
               <>
