@@ -5,7 +5,6 @@ import Splash from './pages/Splash';
 import Dashboard from './pages/Dashboard';
 import FileUpload from './pages/FileUpload';
 import FileList from './pages/FileList';
-import Masterlist from './pages/Masterlist';
 import Privacy from './pages/Privacy';
 import AboutUs from './pages/AboutUs';
 import ContactUs from './pages/ContactUs';
@@ -19,7 +18,6 @@ function App() {
         <Route exact path="/dashboard" component={Dashboard} />
         <Route exact path="/upload" component={FileUpload} />
         <Route exact path="/files" component={FileList} />
-        <Route exact path="/masterlist" component={Masterlist} />
         <Route exact path="/privacy" component={Privacy} />
         <Route exact path="/about" component={AboutUs} />
         <Route exact path="/contact" component={ContactUs} />

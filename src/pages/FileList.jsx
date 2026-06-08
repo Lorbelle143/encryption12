@@ -430,7 +430,7 @@ function FileList() {
     <div className="page">
       <header className="header">
         <button type="button" onClick={() => history.push('/dashboard')} className="btn-back">← Back</button>
-        <h1>Files</h1>
+        <h1>Masterlist of Internal Records</h1>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           <button onClick={async () => { setAuditLog(await getAuditLog()); setShowAuditLog(true); }} className="btn-secondary btn-small" title="Audit Log">📋 Log</button>
           <button onClick={() => setShowArchived(!showArchived)} className="btn-secondary btn-small" style={{ marginRight: '8px' }}>
