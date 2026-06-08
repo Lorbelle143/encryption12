@@ -727,6 +727,7 @@ function FileList() {
               <select value={editClassification} onChange={(e) => setEditClassification(e.target.value)} disabled={editLoading}>
                 <option value="PUBLIC">Public</option>
                 <option value="INTERNAL">Internal</option>
+                <option value="NON-CONFIDENTIAL">Non-Confidential</option>
                 <option value="CONFIDENTIAL">Confidential</option>
                 <option value="RESTRICTED">Restricted</option>
               </select>

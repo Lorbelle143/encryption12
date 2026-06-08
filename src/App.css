@@ -138,6 +138,11 @@ button:disabled {
   color: #333;
 }
 
+.badge-non-confidential {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
 .badge-internal {
   background: #3dc2ff;
 }
