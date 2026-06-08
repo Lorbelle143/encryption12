@@ -240,6 +240,17 @@ function Dashboard() {
               </div>
               <div className="card-footer"><span className="card-link">View files →</span></div>
             </div>
+
+            <div className="action-card masterlist-card" onClick={() => history.push('/masterlist')}>
+              <div className="card-header">
+                <div className="card-icon masterlist-icon"><span>📋</span></div>
+              </div>
+              <div className="card-body">
+                <h3>Masterlist of Records</h3>
+                <p>Manage the official masterlist of internal records with retention schedules</p>
+              </div>
+              <div className="card-footer"><span className="card-link">View masterlist →</span></div>
+            </div>
           </div>
         </div>
 

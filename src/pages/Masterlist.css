@@ -1,0 +1,172 @@
+/* ── Header ── */
+.masterlist-header {
+  background: var(--primary-gradient);
+  height: auto;
+  padding: 14px 24px;
+  border-bottom: none;
+  box-shadow: 0 2px 12px rgba(30,64,175,0.25);
+}
+.masterlist-header h1 { color: white; font-size: 17px; }
+.masterlist-header .btn-back { color: rgba(255,255,255,0.85); }
+.masterlist-header .btn-back:hover { background: rgba(255,255,255,0.15); }
+
+/* ── Content ── */
+.masterlist-content {
+  padding: 20px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* ── Table Wrapper ── */
+.masterlist-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* ── Table ── */
+.masterlist-table {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.masterlist-table thead tr:first-child {
+  background: #1e3a8a;
+  color: white;
+}
+
+.masterlist-table thead tr:first-child th {
+  padding: 12px 10px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  border-right: 1px solid rgba(255,255,255,0.15);
+  vertical-align: middle;
+  line-height: 1.3;
+}
+.masterlist-table thead tr:first-child th:last-child { border-right: none; }
+
+.th-sub {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.8;
+  margin-top: 3px;
+}
+
+/* Sub-header row for Retention Period */
+.thead-sub {
+  background: #1e40af;
+}
+.thead-sub th {
+  padding: 7px 10px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  border-right: 1px solid rgba(255,255,255,0.15);
+}
+.thead-sub th:last-child { border-right: none; }
+
+/* Column widths */
+.col-no         { width: 50px; }
+.col-title      { width: 180px; text-align: left !important; }
+.col-code       { width: 90px; }
+.col-type       { width: 130px; }
+.col-mode       { width: 90px; }
+.col-controller { width: 160px; text-align: left !important; }
+.col-storage    { width: 120px; }
+.col-retention  { width: 210px; }
+.col-disposition { width: 160px; text-align: left !important; }
+.col-actions    { width: 80px; }
+
+/* ── Table Body ── */
+.masterlist-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.masterlist-table tbody tr:last-child { border-bottom: none; }
+
+.row-even { background: #ffffff; }
+.row-odd  { background: #f8fafc; }
+.masterlist-table tbody tr:hover { background: #eff6ff; }
+
+.masterlist-table td {
+  padding: 11px 10px;
+  vertical-align: middle;
+  border-right: 1px solid var(--border);
+  line-height: 1.4;
+}
+.masterlist-table td:last-child { border-right: none; }
+
+.td-center      { text-align: center; color: var(--text-muted); font-size: 12px; }
+.td-title       { font-weight: 600; color: var(--text); font-size: 13px; }
+.td-controller  { font-size: 12px; color: var(--text-muted); }
+.td-disposition { font-size: 12px; color: var(--text-muted); }
+
+.empty-row { border: none !important; }
+
+/* ── Type Badge ── */
+.type-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.type-conf    { background: #fef3c7; color: #92400e; }
+.type-nonconf { background: #dcfce7; color: #166534; }
+
+/* ── Action Buttons ── */
+.td-actions {
+  text-align: center;
+  white-space: nowrap;
+}
+.btn-icon-edit,
+.btn-icon-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.btn-icon-edit:hover   { background: #eff6ff; }
+.btn-icon-delete:hover { background: #fee2e2; }
+
+/* ── Modal ── */
+.masterlist-modal {
+  max-width: 680px;
+}
+
+.masterlist-form { margin-bottom: 20px; }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.form-row-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.form-group-sm { max-width: 180px; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .masterlist-header { padding: 12px 16px; }
+  .masterlist-header h1 { font-size: 15px; }
+  .masterlist-content { padding: 12px; }
+  .form-row { grid-template-columns: 1fr; }
+  .form-row-3 { grid-template-columns: 1fr; }
+  .form-group-sm { max-width: 100%; }
+}

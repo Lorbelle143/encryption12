@@ -474,3 +474,6 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+/* Masterlist card */
+.masterlist-icon { background: linear-gradient(135deg, #065f46, #10b981); }

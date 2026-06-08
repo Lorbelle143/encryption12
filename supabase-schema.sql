@@ -126,3 +126,37 @@ ALTER TABLE folders ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZON
 -- STEP 2: Set your master key in .env file:
 --         VITE_MASTER_KEY=your-secure-password-here
 -- STEP 3: Login with your master key and start uploading folders!
+
+-- ============================================
+-- MASTERLIST TABLE
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS masterlist (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  record_number INTEGER NOT NULL DEFAULT 0,
+  records_title TEXT NOT NULL,
+  code TEXT,
+  type_of_records TEXT NOT NULL DEFAULT 'Non-Confidential',
+  mode_of_filing TEXT NOT NULL DEFAULT 'Hard Copy',
+  responsible_controller TEXT,
+  storage_location TEXT,
+  retention_active TEXT,
+  retention_archive TEXT,
+  retention_year TEXT,
+  disposition_method TEXT DEFAULT 'Recommendation from NAP thru the Records Office',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS for masterlist
+ALTER TABLE masterlist ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public can view masterlist" ON masterlist FOR SELECT TO public USING (true);
+CREATE POLICY "Public can insert masterlist" ON masterlist FOR INSERT TO public WITH CHECK (true);
+CREATE POLICY "Public can update masterlist" ON masterlist FOR UPDATE TO public USING (true) WITH CHECK (true);
+CREATE POLICY "Public can delete masterlist" ON masterlist FOR DELETE TO public USING (true);
+
+-- Trigger for updated_at
+CREATE TRIGGER update_masterlist_updated_at
+BEFORE UPDATE ON masterlist
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
