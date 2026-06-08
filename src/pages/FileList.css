@@ -745,3 +745,17 @@
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(30,64,175,0.3);
 }
+
+/* ── Meta Tags (controller, storage) ── */
+.file-meta-tag {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}

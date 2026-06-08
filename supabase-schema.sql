@@ -174,3 +174,9 @@ FROM (
   FROM folders
 ) sub
 WHERE folders.id = sub.id;
+
+-- ============================================
+-- RESPONSIBLE CONTROLLER & STORAGE LOCATION COLUMNS
+-- ============================================
+ALTER TABLE folders ADD COLUMN IF NOT EXISTS responsible_controller TEXT;
+ALTER TABLE folders ADD COLUMN IF NOT EXISTS storage_location TEXT;

@@ -23,6 +23,8 @@ function FileUpload() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [notes, setNotes] = useState('');
+  const [responsibleController, setResponsibleController] = useState('Jo Augustine G. Corpuz / John Ford N. Ganzan');
+  const [storageLocation, setStorageLocation] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
@@ -83,6 +85,8 @@ function FileUpload() {
         classification,
         folder_password: hashedPassword,
         notes: notes.trim() || null,
+        responsible_controller: responsibleController.trim() || null,
+        storage_location: storageLocation.trim() || null,
         file_urls: uploadedUrls,
         file_count: uploadedUrls.length,
         record_number: nextNumber,
@@ -97,7 +101,10 @@ function FileUpload() {
         : cloudinaryCount > 0 ? ' via Cloudinary' : ' via Supabase';
       setMessage('Successfully uploaded ' + uploadedUrls.length + ' file(s) to "' + folderName.trim() + '"!' + providerNote);
       setMessageType('success');
-      setFolderName(''); setClassification('PUBLIC'); setPassword(''); setNotes(''); setSelectedFiles([]);
+      setFolderName(''); setClassification('PUBLIC'); setPassword(''); setNotes('');
+      setResponsibleController('Jo Augustine G. Corpuz / John Ford N. Ganzan');
+      setStorageLocation('');
+      setSelectedFiles([]);
     } catch (err) {
       setMessage('Upload failed: ' + err.message);
       setMessageType('error');
@@ -188,6 +195,42 @@ function FileUpload() {
                 rows="3"
                 disabled={uploading}
               />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="responsible-controller">Responsible Controller</label>
+              <input
+                id="responsible-controller"
+                type="text"
+                value={responsibleController}
+                onChange={(e) => setResponsibleController(e.target.value)}
+                placeholder="e.g. Jo Augustine G. Corpuz / John Ford N. Ganzan"
+                disabled={uploading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="storage-location">Storage / Location</label>
+              <select
+                id="storage-location"
+                value={storageLocation}
+                onChange={(e) => setStorageLocation(e.target.value)}
+                disabled={uploading}
+              >
+                <option value="">-- Select location --</option>
+                <option value="File Box 1, Folder 1">File Box 1, Folder 1</option>
+                <option value="File Box 1, Folder 2">File Box 1, Folder 2</option>
+                <option value="File Box 1, Folder 3">File Box 1, Folder 3</option>
+                <option value="File Box 1, Folder 4">File Box 1, Folder 4</option>
+                <option value="File Box 1, Folder 5">File Box 1, Folder 5</option>
+                <option value="File Box 1, Folder 6">File Box 1, Folder 6</option>
+                <option value="File Box 1, Folder 7">File Box 1, Folder 7</option>
+                <option value="File Box 1, Folder 8">File Box 1, Folder 8</option>
+                <option value="File Box 1, Folder 9">File Box 1, Folder 9</option>
+                <option value="File Box 1">File Box 1</option>
+                <option value="Cabinet 1">Cabinet 1</option>
+                <option value="Cabinet 1, Drawer 4">Cabinet 1, Drawer 4</option>
+              </select>
             </div>
 
             <div className="form-group">

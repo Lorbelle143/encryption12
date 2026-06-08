@@ -26,6 +26,8 @@ function FileList() {
   const [editFolderName, setEditFolderName] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editClassification, setEditClassification] = useState('');
+  const [editResponsibleController, setEditResponsibleController] = useState('');
+  const [editStorageLocation, setEditStorageLocation] = useState('');
   const [editNewPassword, setEditNewPassword] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [addFiles, setAddFiles] = useState([]);
@@ -99,6 +101,8 @@ function FileList() {
     setEditFolderName(folder.folder_name);
     setEditNotes(folder.notes || '');
     setEditClassification(folder.classification);
+    setEditResponsibleController(folder.responsible_controller || '');
+    setEditStorageLocation(folder.storage_location || '');
     setEditNewPassword('');
     setShowEditPw(false);
     setShowEditModal(true);
@@ -107,7 +111,13 @@ function FileList() {
   const handleEditSubmit = async () => {
     setEditLoading(true);
     try {
-      const updates = { folder_name: editFolderName, notes: editNotes, classification: editClassification };
+      const updates = {
+        folder_name: editFolderName,
+        notes: editNotes,
+        classification: editClassification,
+        responsible_controller: editResponsibleController,
+        storage_location: editStorageLocation,
+      };
       if (editNewPassword.trim()) {
         updates.folder_password = await hashPassword(editNewPassword.trim());
       }
@@ -507,6 +517,8 @@ function FileList() {
                       </div>
                       <div className="file-meta">
                         <span className="file-date">{new Date(folder.created_at).toLocaleDateString()}</span>
+                        {folder.storage_location && <span className="file-meta-tag">📦 {folder.storage_location}</span>}
+                        {folder.responsible_controller && <span className="file-meta-tag">👤 {folder.responsible_controller}</span>}
                       </div>
                       {folder.notes && <p className="folder-notes">{folder.notes}</p>}
                     </div>
@@ -546,6 +558,8 @@ function FileList() {
                         <h3>{folder.folder_name}</h3>
                         <p className="file-count">{folder.file_count} file(s)</p>
                         <p className="file-date">{new Date(folder.created_at).toLocaleDateString()}</p>
+                        {folder.storage_location && <p className="file-meta-tag" style={{ marginTop: '4px' }}>📦 {folder.storage_location}</p>}
+                        {folder.responsible_controller && <p className="file-meta-tag" style={{ marginTop: '2px' }}>👤 {folder.responsible_controller}</p>}
                         {folder.notes && <p className="folder-notes-grid">{folder.notes}</p>}
                       </div>
                       <div className="file-card-actions">
@@ -745,6 +759,31 @@ function FileList() {
             <div className="form-group">
               <label>Notes</label>
               <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows="4" disabled={editLoading} />
+            </div>
+            <div className="form-group">
+              <label>Responsible Controller</label>
+              <input type="text" value={editResponsibleController}
+                onChange={(e) => setEditResponsibleController(e.target.value)}
+                placeholder="e.g. Jo Augustine G. Corpuz / John Ford N. Ganzan"
+                disabled={editLoading} />
+            </div>
+            <div className="form-group">
+              <label>Storage / Location</label>
+              <select value={editStorageLocation} onChange={(e) => setEditStorageLocation(e.target.value)} disabled={editLoading}>
+                <option value="">-- Select location --</option>
+                <option value="File Box 1, Folder 1">File Box 1, Folder 1</option>
+                <option value="File Box 1, Folder 2">File Box 1, Folder 2</option>
+                <option value="File Box 1, Folder 3">File Box 1, Folder 3</option>
+                <option value="File Box 1, Folder 4">File Box 1, Folder 4</option>
+                <option value="File Box 1, Folder 5">File Box 1, Folder 5</option>
+                <option value="File Box 1, Folder 6">File Box 1, Folder 6</option>
+                <option value="File Box 1, Folder 7">File Box 1, Folder 7</option>
+                <option value="File Box 1, Folder 8">File Box 1, Folder 8</option>
+                <option value="File Box 1, Folder 9">File Box 1, Folder 9</option>
+                <option value="File Box 1">File Box 1</option>
+                <option value="Cabinet 1">Cabinet 1</option>
+                <option value="Cabinet 1, Drawer 4">Cabinet 1, Drawer 4</option>
+              </select>
             </div>
             <div className="form-group">
               <label>Change Password <span style={{ fontWeight: 400, color: '#999', fontSize: '12px' }}>(leave blank to keep current)</span></label>
