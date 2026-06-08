@@ -12,7 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE folders (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   folder_name TEXT NOT NULL,
-  classification TEXT NOT NULL CHECK (classification IN ('PUBLIC', 'INTERNAL', 'CONFIDENTIAL', 'RESTRICTED')),
+  classification TEXT NOT NULL CHECK (classification IN ('PUBLIC', 'INTERNAL', 'NON-CONFIDENTIAL', 'CONFIDENTIAL', 'RESTRICTED')),
   notes TEXT,
   file_count INTEGER NOT NULL DEFAULT 0,
   file_urls TEXT[] NOT NULL DEFAULT '{}',
