@@ -418,6 +418,28 @@ function FileList() {
     win.document.close();
   };
 
+  // ── Reorder: move a folder up or down, renumber all ──
+  const moveFolder = async (folderId, direction) => {
+    const ordered = [...activeFiles].sort((a, b) => (a.record_number ?? 9999) - (b.record_number ?? 9999));
+    const idx = ordered.findIndex(f => f.id === folderId);
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === ordered.length - 1) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    // Swap
+    const temp = ordered[idx];
+    ordered[idx] = ordered[swapIdx];
+    ordered[swapIdx] = temp;
+    // Renumber from 1
+    try {
+      for (let i = 0; i < ordered.length; i++) {
+        await supabase.from('folders').update({ record_number: i + 1 }).eq('id', ordered[i].id);
+      }
+      fetchFiles();
+    } catch (err) {
+      alert('Error reordering: ' + err.message);
+    }
+  };
+
   const sortedFilteredFiles = [...(showArchived ? archivedFiles : activeFiles)]
     .filter(folder =>
       folder.folder_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -467,6 +489,11 @@ function FileList() {
               {label} {sortBy === field ? (sortDir === 'asc' ? '↑' : '↓') : ''}
             </button>
           ))}
+          {sortBy === 'number' && !searchTerm && (
+            <span style={{ fontSize: '12px', color: '#94a3b8', marginLeft: '8px' }}>
+              · use ↑↓ on each row to reorder
+            </span>
+          )}
         </div>
         {searchTerm && <div className="search-results-info">{sortedFilteredFiles.length} of {files.length} folders found</div>}
       </div>
@@ -505,9 +532,21 @@ function FileList() {
                         onChange={() => toggleSelect(folder.id)}
                         style={{ width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }} />
                     )}
-                    {/* Record Number */}
-                    {folder.record_number != null && (
-                      <div className="record-number-badge">{folder.record_number}</div>
+                    {/* Record Number + reorder arrows */}
+                    {!showArchived && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                        <button
+                          onClick={() => moveFolder(folder.id, 'up')}
+                          className="reorder-btn"
+                          title="Move up"
+                        >▲</button>
+                        <div className="record-number-badge">{folder.record_number ?? '—'}</div>
+                        <button
+                          onClick={() => moveFolder(folder.id, 'down')}
+                          className="reorder-btn"
+                          title="Move down"
+                        >▼</button>
+                      </div>
                     )}
                     <div className="file-info" style={{ flex: 1 }}>
                       <div className="file-header">
@@ -550,10 +589,8 @@ function FileList() {
                       <div className="file-card-header">
                         <span className="file-icon-xl">📁</span>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                          {folder.record_number != null && (
-                            <div className="record-number-badge">{folder.record_number}</div>
-                          )}
-                          <span className={`badge badge-${folder.classification.toLowerCase()}`}>{folder.classification}</span>
+                          <div className="record-number-badge">{folder.record_number ?? '—'}</div>
+                          <span className={`badge badge-${folder.classification.toLowerCase().replace(' ','-')}`}>{folder.classification}</span>
                         </div>
                       </div>
                       <div className="file-card-content">
