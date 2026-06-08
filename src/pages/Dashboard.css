@@ -255,8 +255,9 @@
   font-size: 26px;
 }
 
-.upload-icon { background: linear-gradient(135deg, #1e3a8a, #3b82f6); }
-.files-icon  { background: linear-gradient(135deg, #0369a1, #0ea5e9); }
+.upload-icon { background: linear-gradient(135deg, #1e40af, #2563eb); }
+.files-icon  { background: linear-gradient(135deg, #0369a1, #0284c7); }
+.masterlist-icon { background: linear-gradient(135deg, #065f46, #059669); }
 
 .card-badge {
   background: #dcfce7;
