@@ -5,14 +5,14 @@
 
 /* ── HEADER ── */
 .dashboard-header {
-  background: #0f172a;
+  background: #1d4ed8;
   color: white;
   padding: 0 32px;
   height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.1), 0 2px 12px rgba(29,78,216,0.3);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -128,7 +128,7 @@
 
 /* ── HERO BANNER ── */
 .welcome-banner {
-  background: #0f172a;
+  background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
   border-radius: 16px;
   padding: 36px 40px;
   margin-bottom: 28px;
@@ -136,9 +136,10 @@
   justify-content: space-between;
   align-items: center;
   gap: 24px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.15);
   position: relative;
   overflow: hidden;
+  box-shadow: 0 8px 24px rgba(29,78,216,0.25);
 }
 
 .welcome-banner::before {
@@ -173,8 +174,8 @@
 }
 
 .stat-card {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.25);
   border-radius: 12px;
   padding: 16px 20px;
   display: flex;

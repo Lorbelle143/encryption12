@@ -3,8 +3,8 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --navy:       #0f172a;
-  --navy-mid:   #1e293b;
+  --navy:       #1d4ed8;
+  --navy-mid:   #2563eb;
   --blue:       #2563eb;
   --blue-light: #3b82f6;
   --green:      #16a34a;
@@ -42,7 +42,7 @@ body {
 
 /* ── Header ── */
 .header {
-  background: var(--navy);
+  background: #1d4ed8;
   padding: 0 28px;
   height: 58px;
   display: flex;
@@ -52,7 +52,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.05), 0 2px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px rgba(29,78,216,0.3);
 }
 
 .header h1 {
