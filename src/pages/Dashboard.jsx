@@ -16,11 +16,14 @@ function Dashboard() {
   const history = useHistory();
   const [totalFiles, setTotalFiles] = useState(0);
   const [totalFolders, setTotalFolders] = useState(0);
+  const [archivedFolders, setArchivedFolders] = useState(0);
   const [cloudinaryCount, setCloudinaryCount] = useState(0);
   const [supabaseCount, setSupabaseCount] = useState(0);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(false);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [recentActivity, setRecentActivity] = useState([]);
+  const [quickSearch, setQuickSearch] = useState('');
   // Change password
   const [showChangePw, setShowChangePw] = useState(false);
   const [currentPw, setCurrentPw] = useState('');
@@ -56,11 +59,16 @@ function Dashboard() {
     const fetchStats = async () => {
       if (!isAdmin()) return;
       try {
-        const { data } = await supabase.from('folders').select('file_count, file_urls').eq('is_archived', false);
+        setStatsError(false);
+        const { data, error } = await supabase.from('folders').select('file_count, file_urls, is_archived');
+        if (error) throw error;
         if (data) {
-          setTotalFolders(data.length);
+          const active = data.filter(f => !f.is_archived);
+          const archived = data.filter(f => f.is_archived);
+          setTotalFolders(active.length);
+          setArchivedFolders(archived.length);
           let total = 0, cdn = 0, sb = 0;
-          for (const folder of data) {
+          for (const folder of active) {
             total += folder.file_count || 0;
             for (const url of (folder.file_urls || [])) {
               const ref = decodeFileRef(url);
@@ -72,7 +80,9 @@ function Dashboard() {
           setCloudinaryCount(cdn);
           setSupabaseCount(sb);
         }
-      } catch { /* silent */ } finally { setStatsLoading(false); }
+      } catch {
+        setStatsError(true);
+      } finally { setStatsLoading(false); }
     };
     if (!loading && isAdmin()) fetchStats();
   }, [loading, isAdmin]);
@@ -167,6 +177,20 @@ function Dashboard() {
       )}
 
       <div className="content dashboard-content">
+        {/* Supabase connection error banner */}
+        {statsError && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px',
+            padding: '14px 18px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px'
+          }}>
+            <span style={{ fontSize: '20px' }}>⚠️</span>
+            <div>
+              <p style={{ margin: 0, fontWeight: '700', color: '#dc2626', fontSize: '14px' }}>Database connection issue</p>
+              <p style={{ margin: '2px 0 0', color: '#ef4444', fontSize: '12px' }}>Could not load stats from Supabase. Check your connection or project status.</p>
+            </div>
+          </div>
+        )}
+
         <div className="welcome-banner">
           <div className="welcome-text">
             <h2>Welcome back, Admin 👋</h2>
@@ -176,7 +200,7 @@ function Dashboard() {
             <div className="stat-card">
               <div className="stat-icon">📁</div>
               <div className="stat-info">
-                <span className="stat-label">Total Folders</span>
+                <span className="stat-label">Active Folders</span>
                 <span className="stat-value">{statsLoading ? '...' : totalFolders}</span>
               </div>
             </div>
@@ -188,24 +212,57 @@ function Dashboard() {
               </div>
             </div>
             <div className="stat-card">
+              <div className="stat-icon">🗄️</div>
+              <div className="stat-info">
+                <span className="stat-label">Archived</span>
+                <span className="stat-value">{statsLoading ? '...' : archivedFolders}</span>
+              </div>
+            </div>
+            <div className="stat-card">
               <div className="stat-icon">☁️</div>
               <div className="stat-info">
                 <span className="stat-label">Cloudinary</span>
                 <span className="stat-value">{statsLoading ? '...' : cloudinaryCount}</span>
               </div>
             </div>
-            <div className="stat-card">
-              <div className="stat-icon">🗄️</div>
-              <div className="stat-info">
-                <span className="stat-label">Supabase</span>
-                <span className="stat-value">{statsLoading ? '...' : supabaseCount}</span>
-              </div>
-            </div>
+          </div>
+        </div>
+
+        {/* Quick Search */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', background: 'white',
+            border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '0 14px',
+            maxWidth: '480px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+            transition: 'all 0.2s'
+          }}>
+            <span style={{ fontSize: '15px', marginRight: '8px' }}>🔍</span>
+            <input
+              type="text"
+              placeholder="Quick search folders..."
+              value={quickSearch}
+              onChange={e => setQuickSearch(e.target.value)}
+              style={{
+                flex: 1, border: 'none', outline: 'none', padding: '11px 4px',
+                fontSize: '14px', background: 'transparent', color: '#0f172a', fontFamily: 'inherit'
+              }}
+            />
+            {quickSearch && (
+              <button onClick={() => setQuickSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '13px', padding: '0 4px' }}>✕</button>
+            )}
+            {quickSearch && (
+              <button
+                onClick={() => history.push(`/files?search=${encodeURIComponent(quickSearch)}`)}
+                style={{ background: '#1d4ed8', color: 'white', border: 'none', borderRadius: '7px', padding: '6px 14px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', marginLeft: '8px', whiteSpace: 'nowrap' }}
+              >
+                Search →
+              </button>
+            )}
           </div>
         </div>
 
         {/* Empty state */}
-        {!statsLoading && totalFolders === 0 && (
+        {!statsLoading && totalFolders === 0 && !statsError && (
           <div className="empty-dashboard">
             <div style={{ fontSize: '64px', marginBottom: '16px' }}>📂</div>
             <h3>No documents yet</h3>
@@ -235,10 +292,20 @@ function Dashboard() {
                 <div className="card-icon files-icon"><span>📋</span></div>
               </div>
               <div className="card-body">
-                <h3>Masterlist of Internal Records</h3>
-                <p>Browse, download, and manage all stored documents</p>
+                <h3>Document Folders</h3>
+                <p>Browse, download, and manage all stored encrypted folders</p>
               </div>
-              <div className="card-footer"><span className="card-link">View masterlist →</span></div>
+              <div className="card-footer"><span className="card-link">View folders →</span></div>
+            </div>
+            <div className="action-card masterlist-card" onClick={() => history.push('/masterlist')}>
+              <div className="card-header">
+                <div className="card-icon masterlist-icon"><span>📑</span></div>
+              </div>
+              <div className="card-body">
+                <h3>Masterlist of Internal Records</h3>
+                <p>Manage the official records inventory with retention and disposition data</p>
+              </div>
+              <div className="card-footer"><span className="card-link">Open masterlist →</span></div>
             </div>
           </div>
         </div>

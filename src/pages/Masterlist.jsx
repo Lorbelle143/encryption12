@@ -22,12 +22,16 @@ function Masterlist() {
   const history = useHistory();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [form, setForm] = useState(EMPTY_ROW);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  // Sorting
+  const [sortBy, setSortBy] = useState('record_number');
+  const [sortDir, setSortDir] = useState('asc');
 
   useEffect(() => {
     if (authLoading) return;
@@ -37,12 +41,19 @@ function Masterlist() {
 
   const fetchRecords = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('masterlist')
-      .select('*')
-      .order('record_number', { ascending: true });
-    if (!error) setRecords(data || []);
-    setLoading(false);
+    setDbError(false);
+    try {
+      const { data, error } = await supabase
+        .from('masterlist')
+        .select('*')
+        .order('record_number', { ascending: true });
+      if (error) throw error;
+      setRecords(data || []);
+    } catch {
+      setDbError(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openAdd = () => {
@@ -80,7 +91,6 @@ function Masterlist() {
           .eq('id', editingRecord.id);
         if (error) throw error;
       } else {
-        // Get next number
         const maxNo = records.length > 0 ? Math.max(...records.map(r => r.record_number || 0)) : 0;
         const { error } = await supabase
           .from('masterlist')
@@ -107,19 +117,126 @@ function Masterlist() {
     }
   };
 
-  const filtered = records.filter(r =>
-    r.records_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.type_of_records?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.storage_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.code?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSort = (field) => {
+    if (sortBy === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(field); setSortDir('asc'); }
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortBy !== field) return <span style={{ opacity: 0.3, fontSize: '10px' }}> ↕</span>;
+    return <span style={{ fontSize: '10px' }}> {sortDir === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  const filtered = records
+    .filter(r =>
+      r.records_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.type_of_records?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.storage_location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.code?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      let va = a[sortBy] ?? '';
+      let vb = b[sortBy] ?? '';
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+  // Print the masterlist table
+  const handlePrint = () => {
+    const rows = filtered.map((rec, i) => `
+      <tr style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'}">
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${rec.record_number ?? ''}</td>
+        <td style="padding:8px 6px;border:1px solid #e2e8f0;font-weight:600">${rec.records_title ?? ''}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${rec.code ?? ''}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${rec.type_of_records ?? ''}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${rec.mode_of_filing ?? ''}</td>
+        <td style="padding:8px 6px;border:1px solid #e2e8f0">${rec.responsible_controller ?? ''}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${rec.storage_location ?? ''}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${rec.retention_active ?? ''}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${rec.retention_archive ?? ''}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${rec.retention_year ?? ''}</td>
+        <td style="padding:8px 6px;border:1px solid #e2e8f0">${rec.disposition_method ?? ''}</td>
+      </tr>
+    `).join('');
+
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <html>
+      <head>
+        <title>Masterlist of Internal Records</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; font-size: 11px; color: #0f172a; }
+          h1 { font-size: 16px; font-weight: 800; margin: 0 0 2px; }
+          .sub { font-size: 12px; color: #64748b; margin: 0 0 16px; }
+          table { width: 100%; border-collapse: collapse; }
+          thead tr { background: #1e3a8a; color: white; }
+          thead th { padding: 9px 6px; text-align: center; border: 1px solid #1e40af; font-size: 11px; }
+          .meta { font-size: 11px; color: #64748b; margin-top: 16px; }
+        </style>
+      </head>
+      <body>
+        <h1>Masterlist of Internal Records</h1>
+        <p class="sub">NBSC Guidance Counseling Office &mdash; Printed: ${new Date().toLocaleString()}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>No.</th><th>Records Title</th><th>Code</th><th>Type</th><th>Mode</th>
+              <th>Responsible Controller</th><th>Storage</th><th>Active</th><th>Archive</th><th>Year</th><th>Disposition</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p class="meta">Total records: ${filtered.length}</p>
+        <script>window.print();</script>
+      </body>
+      </html>
+    `);
+    win.document.close();
+  };
+
+  // Export to CSV
+  const handleExportCSV = () => {
+    const headers = ['No.','Records Title','Code','Type of Records','Mode of Filing','Responsible Controller','Storage/Location','Retention Active','Retention Archive','Year','Disposition Method'];
+    const rows = filtered.map(r => [
+      r.record_number ?? '',
+      `"${(r.records_title ?? '').replace(/"/g, '""')}"`,
+      r.code ?? '',
+      r.type_of_records ?? '',
+      r.mode_of_filing ?? '',
+      `"${(r.responsible_controller ?? '').replace(/"/g, '""')}"`,
+      `"${(r.storage_location ?? '').replace(/"/g, '""')}"`,
+      r.retention_active ?? '',
+      r.retention_archive ?? '',
+      r.retention_year ?? '',
+      `"${(r.disposition_method ?? '').replace(/"/g, '""')}"`
+    ].join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Masterlist_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="page">
       <header className="header masterlist-header">
         <button type="button" onClick={() => history.push('/dashboard')} className="btn-back">← Back</button>
         <h1>Masterlist of Internal Records</h1>
-        <button onClick={openAdd} className="btn-primary">+ Add Record</button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button onClick={handleExportCSV} className="btn-secondary btn-small" title="Export to CSV" style={{ color: 'rgba(255,255,255,0.9)', borderColor: 'rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.1)' }}>
+            📥 CSV
+          </button>
+          <button onClick={handlePrint} className="btn-secondary btn-small" title="Print / Export PDF" style={{ color: 'rgba(255,255,255,0.9)', borderColor: 'rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.1)' }}>
+            🖨️ Print
+          </button>
+          <button onClick={openAdd} className="btn-primary">+ Add Record</button>
+        </div>
       </header>
 
       {/* Search */}
@@ -139,6 +256,21 @@ function Masterlist() {
       </div>
 
       <div className="content masterlist-content">
+        {/* DB Error banner */}
+        {dbError && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px',
+            padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px'
+          }}>
+            <span style={{ fontSize: '20px' }}>⚠️</span>
+            <div>
+              <p style={{ margin: 0, fontWeight: '700', color: '#dc2626', fontSize: '14px' }}>Could not load masterlist</p>
+              <p style={{ margin: '2px 0 0', color: '#ef4444', fontSize: '12px' }}>Check your Supabase connection or project status.</p>
+            </div>
+            <button onClick={fetchRecords} style={{ marginLeft: 'auto', background: '#dc2626', color: 'white', border: 'none', borderRadius: '7px', padding: '7px 14px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>Retry</button>
+          </div>
+        )}
+
         {loading ? (
           <div className="loading-container"><div className="spinner"></div></div>
         ) : (
@@ -146,13 +278,13 @@ function Masterlist() {
             <table className="masterlist-table">
               <thead>
                 <tr>
-                  <th className="col-no">No.</th>
-                  <th className="col-title">Records Title</th>
+                  <th className="col-no" onClick={() => handleSort('record_number')} style={{ cursor: 'pointer' }}>No.<SortIcon field="record_number" /></th>
+                  <th className="col-title" onClick={() => handleSort('records_title')} style={{ cursor: 'pointer' }}>Records Title<SortIcon field="records_title" /></th>
                   <th className="col-code">Code <span className="th-sub">(To be filled by RAO)</span></th>
-                  <th className="col-type">Type of Records <span className="th-sub">(Confidential or Non-Confidential)</span></th>
-                  <th className="col-mode">Mode of Filing</th>
+                  <th className="col-type" onClick={() => handleSort('type_of_records')} style={{ cursor: 'pointer' }}>Type of Records <span className="th-sub">(Confidential or Non-Confidential)</span><SortIcon field="type_of_records" /></th>
+                  <th className="col-mode" onClick={() => handleSort('mode_of_filing')} style={{ cursor: 'pointer' }}>Mode of Filing<SortIcon field="mode_of_filing" /></th>
                   <th className="col-controller">Responsible Controller</th>
-                  <th className="col-storage">Storage / Location</th>
+                  <th className="col-storage" onClick={() => handleSort('storage_location')} style={{ cursor: 'pointer' }}>Storage / Location<SortIcon field="storage_location" /></th>
                   <th className="col-retention" colSpan={3}>Retention Period</th>
                   <th className="col-disposition">Disposition Method</th>
                   <th className="col-actions">Actions</th>
@@ -204,6 +336,15 @@ function Masterlist() {
                 )}
               </tbody>
             </table>
+            {filtered.length > 0 && (
+              <div style={{ padding: '10px 16px', borderTop: '1px solid #e2e8f0', fontSize: '12px', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{filtered.length} record{filtered.length !== 1 ? 's' : ''}{searchTerm ? ` matching "${searchTerm}"` : ''}</span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={handleExportCSV} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', color: '#64748b' }}>📥 Export CSV</button>
+                  <button onClick={handlePrint} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer', color: '#64748b' }}>🖨️ Print</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -317,3 +458,4 @@ function Masterlist() {
 }
 
 export default Masterlist;
+

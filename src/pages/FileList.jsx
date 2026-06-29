@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useHistory } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { supabase } from '../lib/supabase';
@@ -14,8 +14,10 @@ const PAGE_SIZE = 12;
 function FileList() {
   const { isAdmin, loading: authLoading } = useAuth();
   const history = useHistory();
+  const location = useLocation();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -61,12 +63,19 @@ function FileList() {
 
   const fetchFiles = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('folders')
-      .select('*')
-      .order('record_number', { ascending: true });
-    if (!error) setFiles(data);
-    setLoading(false);
+    setDbError(false);
+    try {
+      const { data, error } = await supabase
+        .from('folders')
+        .select('*')
+        .order('record_number', { ascending: true });
+      if (error) throw error;
+      if (!error) setFiles(data);
+    } catch {
+      setDbError(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const activeFiles = files.filter(f => !f.is_archived);
@@ -76,6 +85,70 @@ function FileList() {
     if (authLoading) return;
     if (!isAdmin()) { history.push('/dashboard'); } else { fetchFiles(); }
   }, [authLoading]);
+
+  // Pick up ?search= param from Dashboard quick search
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get('search');
+    if (q) setSearchTerm(q);
+  }, [location.search]);
+
+  // Print the current filtered folder list
+  const printFolderList = () => {
+    const displayList = showArchived ? archivedFiles : activeFiles;
+    const filtered = displayList.filter(folder =>
+      folder.folder_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (folder.notes && folder.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      folder.classification.toLowerCase().includes(searchTerm.toLowerCase())
+    ).sort((a, b) => (a.record_number ?? 9999) - (b.record_number ?? 9999));
+
+    const rows = filtered.map((f, i) => `
+      <tr style="background:${i % 2 === 0 ? '#fff' : '#f8fafc'}">
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${f.record_number ?? '—'}</td>
+        <td style="padding:8px 6px;border:1px solid #e2e8f0;font-weight:600">${f.folder_name}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${f.classification}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${f.file_count}</td>
+        <td style="padding:8px 6px;border:1px solid #e2e8f0">${f.responsible_controller ?? ''}</td>
+        <td style="padding:8px 6px;border:1px solid #e2e8f0">${f.storage_location ?? ''}</td>
+        <td style="padding:8px 6px;border:1px solid #e2e8f0">${f.notes ?? ''}</td>
+        <td style="text-align:center;padding:8px 6px;border:1px solid #e2e8f0">${new Date(f.created_at).toLocaleDateString()}</td>
+      </tr>
+    `).join('');
+
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <html>
+      <head>
+        <title>Document Folders — NBSC GCO</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; font-size: 11px; color: #0f172a; }
+          h1 { font-size: 16px; font-weight: 800; margin: 0 0 2px; }
+          .sub { font-size: 12px; color: #64748b; margin: 0 0 16px; }
+          table { width: 100%; border-collapse: collapse; }
+          thead tr { background: #1e3a8a; color: white; }
+          thead th { padding: 9px 6px; text-align: center; border: 1px solid #1e40af; font-size: 11px; }
+          .meta { font-size: 11px; color: #64748b; margin-top: 16px; }
+        </style>
+      </head>
+      <body>
+        <h1>Document Folders${showArchived ? ' (Archived)' : ''}</h1>
+        <p class="sub">NBSC Guidance Counseling Office &mdash; Printed: ${new Date().toLocaleString()}${searchTerm ? ` &mdash; Filter: "${searchTerm}"` : ''}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>No.</th><th>Folder Name</th><th>Classification</th><th>Files</th>
+              <th>Responsible Controller</th><th>Storage</th><th>Notes</th><th>Date Created</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <p class="meta">Total: ${filtered.length} folder${filtered.length !== 1 ? 's' : ''}</p>
+        <script>window.print();</script>
+      </body>
+      </html>
+    `);
+    win.document.close();
+  };
 
   // Reset page when search/sort/archive changes
   useEffect(() => { setPage(1); }, [searchTerm, sortBy, sortDir, showArchived]);
@@ -465,8 +538,9 @@ function FileList() {
     <div className="page">
       <header className="header">
         <button type="button" onClick={() => history.push('/dashboard')} className="btn-back">← Back</button>
-        <h1>Masterlist of Internal Records</h1>
+        <h1>Document Folders</h1>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <button onClick={printFolderList} className="btn-secondary btn-small" title="Print / Export PDF">🖨️</button>
           <button onClick={async () => { setAuditLog(await getAuditLog()); setShowAuditLog(true); }} className="btn-secondary btn-small" title="Audit Log">📋 Log</button>
           <button onClick={() => setShowArchived(!showArchived)} className="btn-secondary btn-small" style={{ marginRight: '8px' }}>
             {showArchived ? '📂 Active' : `🗄️ Archived${archivedFiles.length > 0 ? ` (${archivedFiles.length})` : ''}`}
@@ -499,6 +573,20 @@ function FileList() {
       </div>
 
       <div className="content">
+        {/* DB Error banner */}
+        {dbError && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px',
+            padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px'
+          }}>
+            <span style={{ fontSize: '20px' }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: '700', color: '#dc2626', fontSize: '14px' }}>Could not load folders</p>
+              <p style={{ margin: '2px 0 0', color: '#ef4444', fontSize: '12px' }}>Check your Supabase connection or project status.</p>
+            </div>
+            <button onClick={fetchFiles} style={{ background: '#dc2626', color: 'white', border: 'none', borderRadius: '7px', padding: '7px 14px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>Retry</button>
+          </div>
+        )}
         {loading ? (
           <div className="loading-container"><div className="spinner"></div></div>
         ) : pagedFiles.length === 0 ? (

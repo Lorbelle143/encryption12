@@ -479,3 +479,45 @@
 
 /* Masterlist card */
 .masterlist-icon { background: linear-gradient(135deg, #065f46, #10b981); }
+.masterlist-card:hover { border-color: #6ee7b7; }
+
+/* ── Dark Mode ── */
+@media (prefers-color-scheme: dark) {
+  .dashboard-page { background: #0f172a; }
+
+  .welcome-banner {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
+  }
+
+  .action-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  .action-card:hover { border-color: #3b82f6; }
+  .card-body h3 { color: #f1f5f9; }
+  .card-body p  { color: #94a3b8; }
+
+  .info-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  .info-content h4 { color: #f1f5f9; }
+  .info-content p  { color: #94a3b8; }
+
+  .recent-activity {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  .activity-action { color: #f1f5f9; }
+  .activity-detail { color: #94a3b8; }
+  .activity-item   { border-color: #334155; }
+
+  .empty-dashboard {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  .empty-dashboard h3 { color: #f1f5f9; }
+  .empty-dashboard p  { color: #94a3b8; }
+
+  .section-title { color: #64748b; }
+}
