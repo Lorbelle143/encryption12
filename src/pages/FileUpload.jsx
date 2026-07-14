@@ -64,6 +64,17 @@ function FileUpload() {
     if (selectedFiles.length === 0) { setMessage('Please select at least one file.'); setMessageType('error'); return; }
     setUploading(true);
     try {
+      // Check for duplicate folder name
+      const { data: existing } = await supabase
+        .from('folders')
+        .select('id, folder_name')
+        .ilike('folder_name', folderName.trim())
+        .eq('is_archived', false)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        const proceed = window.confirm(`A folder named "${folderName.trim()}" already exists. Do you want to create another one anyway?`);
+        if (!proceed) { setUploading(false); return; }
+      }
       const uploadedUrls = [];
       let cloudinaryCount = 0;
       let supabaseCount = 0;

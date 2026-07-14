@@ -279,3 +279,39 @@
 @media (max-width: 480px) {
   .files-grid { grid-template-columns: 1fr 1fr; }
 }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Mobile improvements ── */
+@media (max-width: 640px) {
+  .file-item {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+  .file-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+  }
+  .btn-view, .btn-secondary, .btn-danger {
+    font-size: 12px;
+    padding: 7px 10px;
+  }
+  .record-number-badge {
+    min-width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+  .sort-bar {
+    gap: 4px;
+  }
+  .sort-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+}

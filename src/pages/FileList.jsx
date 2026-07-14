@@ -355,7 +355,14 @@ function FileList() {
   };
 
   const filteredModalFiles = selectedFolder
-    ? selectedFolder.file_urls.filter(u => u.split('/').pop().toLowerCase().includes(modalSearchTerm.toLowerCase()))
+    ? selectedFolder.file_urls.filter(u => {
+        const custom = (selectedFolder.custom_names || {})[u] || '';
+        const original = u.split('/').pop();
+        return (
+          original.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
+          custom.toLowerCase().includes(modalSearchTerm.toLowerCase())
+        );
+      })
     : [];
 
   const deleteFile = async (folderId) => {
@@ -588,7 +595,22 @@ function FileList() {
           </div>
         )}
         {loading ? (
-          <div className="loading-container"><div className="spinner"></div></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '8px 0' }}>
+            {[...Array(6)].map((_, i) => (
+              <div key={i} style={{
+                background: 'white', borderRadius: '12px', padding: '20px', border: '1.5px solid #e2e8f0',
+                display: 'flex', gap: '14px', alignItems: 'center', animation: 'pulse 1.5s ease-in-out infinite',
+                animationDelay: `${i * 0.1}s`
+              }}>
+                <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#e2e8f0', flexShrink: 0 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ height: '14px', background: '#e2e8f0', borderRadius: '6px', width: '40%' }} />
+                  <div style={{ height: '11px', background: '#f1f5f9', borderRadius: '6px', width: '25%' }} />
+                </div>
+                <div style={{ width: '80px', height: '30px', background: '#e2e8f0', borderRadius: '8px' }} />
+              </div>
+            ))}
+          </div>
         ) : pagedFiles.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📄</div>

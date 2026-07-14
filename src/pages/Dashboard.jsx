@@ -33,10 +33,21 @@ function Dashboard() {
   const [showNew, setShowNew] = useState(false);
   const [changePwMsg, setChangePwMsg] = useState({ text: '', type: '' });
   const [changePwLoading, setChangePwLoading] = useState(false);
+  // Export all data
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState('');
+  // Dark mode
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
 
   useEffect(() => {
     if (!loading && !user) history.push('/login');
   }, [user, loading, history]);
+
+  // Dark mode effect
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darkMode', darkMode);
+  }, [darkMode]);
 
   // Session expiry warning
   useEffect(() => {
@@ -123,6 +134,42 @@ function Dashboard() {
 
   const handleLogout = () => { clearSession(); history.push('/login'); };
 
+  const extendSession = () => {
+    localStorage.setItem('authTime', Date.now().toString());
+    setSessionWarning(false);
+  };
+
+  const handleExportAll = async () => {
+    setExporting(true);
+    setExportMsg('');
+    try {
+      const [{ data: folders }, { data: masterlist }, { data: audit }] = await Promise.all([
+        supabase.from('folders').select('*').order('record_number', { ascending: true }),
+        supabase.from('masterlist').select('*').order('record_number', { ascending: true }),
+        supabase.from('audit_log').select('*').order('created_at', { ascending: false }),
+      ]);
+      const payload = {
+        exported_at: new Date().toISOString(),
+        folders: folders || [],
+        masterlist: masterlist || [],
+        audit_log: audit || [],
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `GCO_DMS_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setExportMsg('✅ Backup downloaded!');
+      setTimeout(() => setExportMsg(''), 3000);
+    } catch (e) {
+      setExportMsg('❌ Export failed: ' + e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) return null;
 
   if (!isAdmin()) {
@@ -160,6 +207,12 @@ function Dashboard() {
             <span className="user-name">Administrator</span>
             <span className="badge badge-admin">ADMIN</span>
           </div>
+          <button onClick={() => setDarkMode(v => !v)} className="btn-secondary" style={{ padding: '8px 12px', fontSize: '15px' }} title="Toggle dark mode">
+            {darkMode ? '☀️' : '🌙'}
+          </button>
+          <button onClick={handleExportAll} disabled={exporting} className="btn-secondary" style={{ padding: '8px 14px', fontSize: '13px' }}>
+            {exporting ? '⏳ Exporting...' : '📦 Export Data'}
+          </button>
           <button onClick={() => { setShowChangePw(true); setCurrentPw(''); setNewPw(''); setConfirmPw(''); setChangePwMsg({ text: '', type: '' }); }} className="btn-secondary" style={{ padding: '8px 14px', fontSize: '13px' }}>
             🔑 Change Password
           </button>
@@ -172,7 +225,21 @@ function Dashboard() {
       {/* Session expiry warning banner */}
       {sessionWarning && (
         <div className="session-warning">
-          ⚠️ Your session expires soon. <button onClick={() => { clearSession(); history.push('/login'); }} className="session-warning-link">Log in again</button> to stay active.
+          ⚠️ Your session expires soon.{' '}
+          <button onClick={() => { clearSession(); history.push('/login'); }} className="session-warning-link">Log in again</button>
+          {' '}to stay active.{' '}
+          <button onClick={extendSession} className="session-warning-link" style={{ marginLeft: '8px' }}>⏰ Extend Session</button>
+        </div>
+      )}
+
+      {exportMsg && (
+        <div style={{
+          background: exportMsg.startsWith('✅') ? '#f0fdf4' : '#fef2f2',
+          border: `1px solid ${exportMsg.startsWith('✅') ? '#bbf7d0' : '#fecaca'}`,
+          color: exportMsg.startsWith('✅') ? '#16a34a' : '#dc2626',
+          padding: '10px 24px', fontSize: '13px', fontWeight: '600'
+        }}>
+          {exportMsg}
         </div>
       )}
 
@@ -223,6 +290,13 @@ function Dashboard() {
               <div className="stat-info">
                 <span className="stat-label">Cloudinary</span>
                 <span className="stat-value">{statsLoading ? '...' : cloudinaryCount}</span>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">💾</div>
+              <div className="stat-info">
+                <span className="stat-label">Supabase Files</span>
+                <span className="stat-value">{statsLoading ? '...' : supabaseCount}</span>
               </div>
             </div>
           </div>

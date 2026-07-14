@@ -117,6 +117,25 @@ function Masterlist() {
     }
   };
 
+  const moveRecord = async (recordId, direction) => {
+    const ordered = [...records].sort((a, b) => (a.record_number ?? 9999) - (b.record_number ?? 9999));
+    const idx = ordered.findIndex(r => r.id === recordId);
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === ordered.length - 1) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const temp = ordered[idx];
+    ordered[idx] = ordered[swapIdx];
+    ordered[swapIdx] = temp;
+    try {
+      for (let i = 0; i < ordered.length; i++) {
+        await supabase.from('masterlist').update({ record_number: i + 1 }).eq('id', ordered[i].id);
+      }
+      fetchRecords();
+    } catch (err) {
+      alert('Error reordering: ' + err.message);
+    }
+  };
+
   const handleSort = (field) => {
     if (sortBy === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortBy(field); setSortDir('asc'); }
@@ -312,7 +331,13 @@ function Masterlist() {
                 ) : (
                   filtered.map((rec, idx) => (
                     <tr key={rec.id} className={idx % 2 === 0 ? 'row-even' : 'row-odd'}>
-                      <td className="td-center">{rec.record_number}</td>
+                      <td className="td-center">
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                          <button onClick={() => moveRecord(rec.id, 'up')} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '3px', width: '20px', height: '16px', fontSize: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>▲</button>
+                          <span style={{ fontWeight: '700', fontSize: '12px', color: '#1d4ed8' }}>{rec.record_number}</span>
+                          <button onClick={() => moveRecord(rec.id, 'down')} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '3px', width: '20px', height: '16px', fontSize: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>▼</button>
+                        </div>
+                      </td>
                       <td className="td-title">{rec.records_title}</td>
                       <td className="td-center">{rec.code}</td>
                       <td className="td-center">
